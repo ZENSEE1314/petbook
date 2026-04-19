@@ -69,18 +69,18 @@ export function Guide() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((a) => (
-            <Link key={a.id} to={`/guide/${a.slug}`} className="card-hover group overflow-hidden">
-              {a.image_url ? (
-                <img src={a.image_url} alt="" className="h-36 w-full object-cover" />
-              ) : (
-                <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-cream-100 to-brand-100 text-5xl">
-                  {categoryEmoji[a.category ?? ""] ?? "🐾"}
-                </div>
-              )}
+          {filtered.map((a) => {
+            const image = a.image_url ? (
+              <img src={a.image_url} alt="" className="h-36 w-full object-cover" />
+            ) : (
+              <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-cream-100 to-brand-100 text-5xl">
+                {categoryEmoji[a.category ?? ""] ?? "🐾"}
+              </div>
+            );
+            const body = (
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-display text-lg font-semibold leading-tight group-hover:text-brand-700">
+                  <h3 className="font-display text-lg font-semibold leading-tight">
                     {a.name}
                   </h3>
                   {a.has_guide ? (
@@ -94,8 +94,32 @@ export function Guide() {
                   <p className="mt-2 line-clamp-2 text-sm text-slate-600">{a.short_description}</p>
                 )}
               </div>
-            </Link>
-          ))}
+            );
+
+            if (a.has_guide) {
+              return (
+                <Link
+                  key={a.id}
+                  to={`/guide/${a.slug}`}
+                  className="card-hover group overflow-hidden"
+                >
+                  {image}
+                  {body}
+                </Link>
+              );
+            }
+            return (
+              <div
+                key={a.id}
+                aria-disabled="true"
+                title="Guide coming soon"
+                className="card overflow-hidden opacity-70"
+              >
+                {image}
+                {body}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
