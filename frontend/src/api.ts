@@ -64,6 +64,7 @@ export type User = {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  is_active: boolean;
   is_admin: boolean;
   is_paid: boolean;
   paid_until: string | null;
