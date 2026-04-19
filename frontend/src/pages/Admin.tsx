@@ -18,14 +18,14 @@ import { useSite } from "../site";
 
 export function Admin() {
   const tabClass = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-2 text-sm rounded-md ${
+    `whitespace-nowrap rounded-md px-3 py-2 text-sm ${
       isActive ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
     }`;
 
   return (
     <div className="mx-auto max-w-6xl p-4">
       <h1 className="mb-4 text-3xl font-bold">Admin</h1>
-      <nav className="mb-4 flex gap-1 border-b border-slate-200 pb-2">
+      <nav className="-mx-4 mb-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 pb-2 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <NavLink end to="/admin" className={tabClass}>Users</NavLink>
         <NavLink to="/admin/animals" className={tabClass}>Animals & Guides</NavLink>
         <NavLink to="/admin/products" className={tabClass}>Products</NavLink>
@@ -66,8 +66,8 @@ function Users() {
   }
 
   return (
-    <div className="card overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="card overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
         <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
           <tr>
             <th className="px-4 py-2">User</th>
@@ -85,7 +85,7 @@ function Users() {
                 <p className="font-medium">{u.display_name ?? "—"}</p>
                 <p className="text-xs text-slate-500">{u.email}</p>
               </td>
-              <td className="px-4 py-2 text-slate-600">{formatDate(u.created_at)}</td>
+              <td className="whitespace-nowrap px-4 py-2 text-slate-600">{formatDate(u.created_at)}</td>
               <td className="px-4 py-2">
                 <Toggle value={u.is_active} onChange={(v) => patch(u.id, { is_active: v })} />
               </td>
@@ -96,7 +96,7 @@ function Users() {
                 <Toggle value={u.is_admin} onChange={(v) => patch(u.id, { is_admin: v })} />
               </td>
               <td className="px-4 py-2 text-right">
-                <button onClick={() => remove(u.id)} className="text-xs text-red-600 hover:underline">
+                <button onClick={() => remove(u.id)} className="whitespace-nowrap text-xs text-red-600 hover:underline">
                   Delete
                 </button>
               </td>
@@ -797,8 +797,8 @@ function Products() {
         />
       )}
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-2 text-left">Name</th>
@@ -812,10 +812,10 @@ function Products() {
             {products.map((p) => (
               <tr key={p.id} className="border-b border-slate-100">
                 <td className="px-4 py-2">{p.name}</td>
-                <td className="px-4 py-2 text-center">{p.category}</td>
-                <td className="px-4 py-2 text-center">{formatPrice(p.price_cents)}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-center">{p.category}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-center">{formatPrice(p.price_cents)}</td>
                 <td className="px-4 py-2 text-center">{p.stock}</td>
-                <td className="px-4 py-2 text-right">
+                <td className="whitespace-nowrap px-4 py-2 text-right">
                   <button className="text-xs text-brand-600 hover:underline" onClick={() => setEditing(p)}>
                     Edit
                   </button>
@@ -1006,9 +1006,9 @@ function Orders() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <h2 className="text-xl font-bold">Orders ({orders.length})</h2>
-        <div className="ml-auto flex flex-wrap gap-1">
+        <div className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:ml-auto sm:flex-wrap sm:overflow-visible sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <FilterChip active={filter === ""} label={`All · ${orders.length}`} onClick={() => setFilter("")} />
           {["pending", "paid", "ready_to_ship", "shipped", "delivered", "cancelled"].map((s) => (
             <FilterChip
@@ -1030,35 +1030,43 @@ function Orders() {
             const isOpen = expanded === o.id;
             return (
               <li key={o.id} className="card overflow-hidden">
-                <div className="grid items-center gap-3 p-4 md:grid-cols-[80px_1fr_1fr_120px_160px_auto]">
-                  <button onClick={() => setExpanded(isOpen ? null : o.id)} className="text-left">
-                    <span className="font-semibold text-brand-600">#{o.id}</span>
-                    <p className="text-xs text-slate-500">{formatTimeAgo(o.created_at)}</p>
-                  </button>
-                  <div>
-                    <p className="text-sm font-medium">{o.buyer_display_name ?? "—"}</p>
-                    <p className="text-xs text-slate-500">{o.buyer_email}</p>
+                <div className="p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button onClick={() => setExpanded(isOpen ? null : o.id)} className="shrink-0 text-left">
+                      <span className="font-semibold text-brand-600">#{o.id}</span>
+                      <p className="text-xs text-slate-500">{formatTimeAgo(o.created_at)}</p>
+                    </button>
+                    <span className={`chip capitalize ${STATUS_COLORS[o.status] ?? "bg-slate-100 text-slate-700"}`}>
+                      {o.status.replaceAll("_", " ")}
+                    </span>
+                    <p className="ml-auto whitespace-nowrap font-semibold">{formatPrice(o.total_cents)}</p>
                   </div>
-                  <div className="text-sm text-slate-600">
-                    <p>{o.shipping_name ?? "—"}</p>
-                    <p className="line-clamp-1 text-xs text-slate-400">{o.shipping_address}</p>
+
+                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Buyer</p>
+                      <p className="truncate font-medium">{o.buyer_display_name ?? "—"}</p>
+                      <p className="truncate text-xs text-slate-500">{o.buyer_email}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Ship to</p>
+                      <p className="truncate">{o.shipping_name ?? "—"}</p>
+                      <p className="truncate text-xs text-slate-400">{o.shipping_address}</p>
+                    </div>
                   </div>
-                  <p className="text-right font-semibold">{formatPrice(o.total_cents)}</p>
-                  <span className={`justify-self-start rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[o.status] ?? "bg-slate-100 text-slate-700"}`}>
-                    {o.status.replaceAll("_", " ")}
-                  </span>
-                  <div className="flex justify-end gap-2">
+
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {action ? (
                       <button
                         onClick={() => advance(o)}
                         disabled={busy === o.id}
-                        className="btn-primary text-xs"
+                        className="btn-primary whitespace-nowrap text-xs"
                       >
                         {busy === o.id ? "…" : action.label}
                       </button>
                     ) : null}
                     {o.status !== "delivered" && o.status !== "cancelled" && (
-                      <button onClick={() => cancel(o)} className="btn-secondary text-xs text-red-600">
+                      <button onClick={() => cancel(o)} className="btn-secondary whitespace-nowrap text-xs text-red-600">
                         Cancel
                       </button>
                     )}
@@ -1102,7 +1110,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
+      className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium capitalize ${
         active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
       }`}
     >
