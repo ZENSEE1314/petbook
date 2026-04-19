@@ -96,7 +96,7 @@ def update_animal(
     return _to_out(animal)
 
 
-@router.delete("/{animal_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.delete("/{animal_id}")
 def delete_animal(
     animal_id: int,
     db: Session = Depends(get_db),
