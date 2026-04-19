@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { api, type Animal, type GuideEntry, type Order, type Product, type User } from "../api";
+import { api, type Animal, type GuideEntry, type GuideMedia, type Order, type Product, type User } from "../api";
 import { ImageUpload } from "../components/ImageUpload";
+import { MediaUpload } from "../components/MediaUpload";
 import { formatDate, formatPrice, formatTimeAgo } from "../lib/format";
 
 export function Admin() {
@@ -438,6 +439,8 @@ function GuideEditor({
             })}
           </div>
 
+          <MediaManager animal={animal} />
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -470,6 +473,108 @@ function GuideEditor({
     </div>
   );
 }
+
+// ---------- Media manager (inside GuideEditor) ----------
+
+function MediaManager({ animal }: { animal: Animal }) {
+  const [items, setItems] = useState<GuideMedia[]>([]);
+  const [pending, setPending] = useState<{ url: string; kind: GuideMedia["kind"] } | null>(null);
+  const [title, setTitle] = useState("");
+  const [caption, setCaption] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    setItems(await api.get<GuideMedia[]>(`/animals/${animal.slug}/media`));
+  }
+  useEffect(() => {
+    void reload();
+  }, [animal.slug]);
+
+  async function save() {
+    if (!pending) return;
+    setBusy(true);
+    try {
+      await api.post<GuideMedia>(`/animals/${animal.id}/media`, {
+        kind: pending.kind,
+        url: pending.url,
+        title: title || null,
+        caption: caption || null,
+        position: items.length,
+      });
+      setPending(null);
+      setTitle("");
+      setCaption("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: number) {
+    if (!confirm("Delete this media?")) return;
+    await api.del(`/animals/media/${id}`);
+    await reload();
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <h4 className="mb-3 font-display text-lg font-semibold">Training videos & audio</h4>
+
+      {items.length > 0 && (
+        <ul className="mb-4 grid gap-3 sm:grid-cols-2">
+          {items.map((m) => (
+            <li key={m.id} className="rounded-lg border border-slate-200 bg-white p-3">
+              {m.kind === "video" ? (
+                <video src={m.url} controls preload="metadata" className="w-full rounded-md bg-black" />
+              ) : m.kind === "audio" ? (
+                <audio src={m.url} controls preload="metadata" className="w-full" />
+              ) : (
+                <img src={m.url} alt={m.title ?? ""} className="w-full rounded-md" />
+              )}
+              {m.title && <p className="mt-2 text-sm font-semibold">{m.title}</p>}
+              {m.caption && <p className="text-xs text-slate-600">{m.caption}</p>}
+              <button onClick={() => remove(m.id)} className="mt-2 text-xs text-red-600 hover:underline">
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pending ? (
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+          <p className="text-sm text-emerald-700">Uploaded {pending.kind} · ready to attach</p>
+          <input
+            className="input"
+            placeholder="Title (e.g. 'Sit command — 101')"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            className="input min-h-[60px]"
+            placeholder="Short caption — what does this tutorial teach?"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button onClick={save} disabled={busy} className="btn-primary text-sm">
+              {busy ? "Saving…" : "Attach to guide"}
+            </button>
+            <button onClick={() => setPending(null)} className="btn-secondary text-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <MediaUpload
+          label="Add a training video or audio clip"
+          onUploaded={(r) => setPending(r)}
+        />
+      )}
+    </section>
+  );
+}
+
 
 // ---------- Products ----------
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, ApiError, type Animal, type GuideEntry, type Product } from "../api";
+import { api, ApiError, type Animal, type GuideEntry, type GuideMedia, type Product } from "../api";
 import { useAuth } from "../auth";
 import { formatPrice } from "../lib/format";
 
@@ -11,6 +11,7 @@ export function AnimalDetail() {
   const [animal, setAnimal] = useState<Animal | null>(null);
   const [guide, setGuide] = useState<GuideEntry | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
+  const [media, setMedia] = useState<GuideMedia[]>([]);
   const [paywalled, setPaywalled] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +31,7 @@ export function AnimalDetail() {
       .finally(() => setLoading(false));
 
     void api.get<Product[]>(`/products?animal_slug=${slug}`).then(setRelated).catch(() => setRelated([]));
+    void api.get<GuideMedia[]>(`/animals/${slug}/media`).then(setMedia).catch(() => setMedia([]));
   }, [slug]);
 
   if (loading) return <p className="p-6 text-slate-500">Loading…</p>;
@@ -123,6 +125,38 @@ export function AnimalDetail() {
             </section>
           )}
         </>
+      )}
+
+      {media.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-xl font-bold">Training tutorials</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {media.map((m) => (
+              <article key={m.id} className="card overflow-hidden">
+                {m.kind === "video" ? (
+                  <video
+                    src={m.url}
+                    controls
+                    preload="metadata"
+                    poster={m.poster_url ?? undefined}
+                    className="w-full bg-black"
+                  />
+                ) : m.kind === "audio" ? (
+                  <div className="flex items-center gap-3 bg-gradient-to-br from-cream-100 to-brand-100 p-4">
+                    <div className="text-3xl">🎧</div>
+                    <audio src={m.url} controls preload="metadata" className="w-full" />
+                  </div>
+                ) : (
+                  <img src={m.url} alt={m.title ?? ""} className="w-full object-cover" />
+                )}
+                <div className="p-4">
+                  {m.title && <h3 className="font-semibold">{m.title}</h3>}
+                  {m.caption && <p className="mt-1 text-sm text-slate-600">{m.caption}</p>}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
 
       {related.length > 0 && (

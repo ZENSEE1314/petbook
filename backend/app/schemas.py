@@ -99,6 +99,30 @@ class GuideEntryOut(GuideEntryIn):
         from_attributes = True
 
 
+class GuideMediaIn(BaseModel):
+    kind: str  # "video" | "audio" | "image"
+    url: str
+    title: str | None = None
+    caption: str | None = None
+    poster_url: str | None = None
+    position: int = 0
+
+
+class GuideMediaOut(BaseModel):
+    id: int
+    animal_id: int
+    kind: str
+    url: str
+    title: str | None
+    caption: str | None
+    poster_url: str | None
+    position: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ---------- Social ----------
 
 

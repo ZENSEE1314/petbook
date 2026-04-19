@@ -81,6 +81,18 @@ export type Animal = {
   has_guide: boolean;
 };
 
+export type GuideMedia = {
+  id: number;
+  animal_id: number;
+  kind: "video" | "audio" | "image";
+  url: string;
+  title: string | null;
+  caption: string | null;
+  poster_url: string | null;
+  position: number;
+  created_at: string;
+};
+
 export type GuideEntry = {
   id: number;
   animal_id: number;

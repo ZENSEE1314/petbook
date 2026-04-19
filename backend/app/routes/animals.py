@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import get_current_user, get_optional_user, require_admin
-from ..models import Animal, GuideEntry, User
-from ..schemas import AnimalIn, AnimalOut, GuideEntryIn, GuideEntryOut
+from ..models import Animal, GuideEntry, GuideMedia, User
+from ..schemas import AnimalIn, AnimalOut, GuideEntryIn, GuideEntryOut, GuideMediaIn, GuideMediaOut
 
 router = APIRouter(prefix="/animals", tags=["animals"])
 
@@ -133,6 +133,71 @@ def get_guide(
     if not user or not user.is_paid:
         raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, "Paid membership required")
     return animal.guide
+
+
+# ---------- Media (video / audio / image training tutorials) ----------
+
+
+@router.get("/{slug}/media", response_model=list[GuideMediaOut])
+def list_media(slug: str, db: Session = Depends(get_db)) -> list[GuideMedia]:
+    animal = db.query(Animal).filter(Animal.slug == slug).first()
+    if not animal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Animal not found")
+    return (
+        db.query(GuideMedia)
+        .filter(GuideMedia.animal_id == animal.id)
+        .order_by(GuideMedia.position, GuideMedia.created_at)
+        .all()
+    )
+
+
+@router.post("/{animal_id}/media", response_model=GuideMediaOut, status_code=status.HTTP_201_CREATED)
+def add_media(
+    animal_id: int,
+    data: GuideMediaIn,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> GuideMedia:
+    animal = db.get(Animal, animal_id)
+    if not animal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Animal not found")
+    if data.kind not in {"video", "audio", "image"}:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "kind must be video, audio, or image")
+    media = GuideMedia(animal_id=animal.id, **data.model_dump())
+    db.add(media)
+    db.commit()
+    db.refresh(media)
+    return media
+
+
+@router.patch("/media/{media_id}", response_model=GuideMediaOut)
+def update_media(
+    media_id: int,
+    data: GuideMediaIn,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> GuideMedia:
+    media = db.get(GuideMedia, media_id)
+    if not media:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Media not found")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(media, field, value)
+    db.commit()
+    db.refresh(media)
+    return media
+
+
+@router.delete("/media/{media_id}")
+def delete_media(
+    media_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> None:
+    media = db.get(GuideMedia, media_id)
+    if not media:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Media not found")
+    db.delete(media)
+    db.commit()
 
 
 @router.put("/{animal_id}/guide", response_model=GuideEntryOut)

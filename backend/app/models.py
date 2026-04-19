@@ -107,6 +107,26 @@ class GuideEntry(Base):
     animal: Mapped[Animal] = relationship(back_populates="guide")
 
 
+class GuideMedia(Base):
+    """Video / audio / image attached to an animal's care guide (e.g. training tutorials)."""
+
+    __tablename__ = "guide_media"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    animal_id: Mapped[int] = mapped_column(
+        ForeignKey("animals.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)  # video / audio / image
+    url: Mapped[str] = mapped_column(String(400), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(200))
+    caption: Mapped[str | None] = mapped_column(Text)
+    poster_url: Mapped[str | None] = mapped_column(String(400))  # optional poster for video
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 # ---------- Social ----------
 
 
