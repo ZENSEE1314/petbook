@@ -1,13 +1,16 @@
 """LLM-backed helpers for admin tools.
 
-Used when admin clicks "generate guide draft" on an animal or "let AI find more animals".
-Falls back to a canned template when ANTHROPIC_API_KEY is absent so the app works offline.
+Calls Ollama Cloud when OLLAMA_API_KEY is set (hosted, no local GPU needed).
+Falls back to Anthropic if ANTHROPIC_API_KEY is set, then to a canned template
+so the app works offline.
 """
 
 from __future__ import annotations
 
 import json
 from typing import Any
+
+import httpx
 
 from .config import settings
 
@@ -20,6 +23,9 @@ Respond with JSON only, no prose."""
 _ANIMAL_SYSTEM = """You are a pet-ownership expert. Given a count, list that many distinct species
 commonly kept as pets that a user might not already have. Output JSON only:
 [{"name": "...", "category": "mammal|bird|reptile|fish|amphibian|invertebrate", "short_description": "..."}]."""
+
+
+# ---------- Canned fallback ----------
 
 
 def _canned_guide(animal_name: str) -> dict[str, str]:
@@ -41,61 +47,90 @@ def _canned_guide(animal_name: str) -> dict[str, str]:
     }
 
 
-def generate_guide_draft(animal_name: str) -> dict[str, str]:
-    if not settings.anthropic_api_key:
-        return _canned_guide(animal_name)
+_CANNED_ANIMALS = [
+    {"name": "Axolotl", "category": "amphibian", "short_description": "Aquatic salamander that stays in larval form."},
+    {"name": "Ferret", "category": "mammal", "short_description": "Playful, highly social mustelid."},
+    {"name": "Hedgehog", "category": "mammal", "short_description": "Spiny insectivore, mostly nocturnal."},
+    {"name": "Leopard Gecko", "category": "reptile", "short_description": "Docile, beginner-friendly lizard."},
+    {"name": "Betta Fish", "category": "fish", "short_description": "Vibrant freshwater fighter fish."},
+    {"name": "Cockatiel", "category": "bird", "short_description": "Affectionate small parrot with a crest."},
+    {"name": "Guinea Pig", "category": "mammal", "short_description": "Social, vocal rodent."},
+    {"name": "Rabbit", "category": "mammal", "short_description": "Intelligent lagomorph, litter-trainable."},
+]
 
+
+# ---------- Ollama Cloud ----------
+
+
+def _ollama_chat(system: str, user: str) -> str | None:
+    """POST /api/chat to Ollama Cloud. Returns the model's raw text response, or None on failure."""
+    if not settings.ollama_api_key:
+        return None
+    url = f"{settings.ollama_host.rstrip('/')}/api/chat"
+    payload = {
+        "model": settings.ollama_model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "stream": False,
+        "format": "json",
+    }
+    headers = {"Authorization": f"Bearer {settings.ollama_api_key}"}
     try:
-        import anthropic  # lazy import — only loaded if we have a key
-    except ImportError:
-        return _canned_guide(animal_name)
+        resp = httpx.post(url, json=payload, headers=headers, timeout=120.0)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("message", {}).get("content")
+    except (httpx.HTTPError, ValueError):
+        return None
 
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2000,
-        system=_GUIDE_SYSTEM,
-        messages=[{"role": "user", "content": f"Species: {animal_name}"}],
+
+# ---------- Anthropic (legacy fallback) ----------
+
+
+def _anthropic_chat(system: str, user: str) -> str | None:
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        import anthropic  # lazy import
+    except ImportError:
+        return None
+    try:
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2000,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return "".join(block.text for block in msg.content if hasattr(block, "text"))
+    except Exception:  # noqa: BLE001 — any network/auth failure falls back to canned
+        return None
+
+
+# ---------- Public API ----------
+
+
+def generate_guide_draft(animal_name: str) -> dict[str, str]:
+    text = _ollama_chat(_GUIDE_SYSTEM, f"Species: {animal_name}") or _anthropic_chat(
+        _GUIDE_SYSTEM, f"Species: {animal_name}"
     )
-    text = "".join(block.text for block in msg.content if hasattr(block, "text"))
+    if not text:
+        return _canned_guide(animal_name)
     try:
         data: dict[str, Any] = json.loads(text)
     except json.JSONDecodeError:
         return _canned_guide(animal_name)
-    # Coerce everything to strings
     return {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in data.items()}
 
 
 def suggest_more_animals(count: int = 5, exclude_names: list[str] | None = None) -> list[dict[str, str]]:
     exclude_names = exclude_names or []
-    if not settings.anthropic_api_key:
-        # Canned fallback list — useful if the admin clicks before setting the key.
-        fallback = [
-            {"name": "Axolotl", "category": "amphibian", "short_description": "Aquatic salamander that stays in larval form."},
-            {"name": "Ferret", "category": "mammal", "short_description": "Playful, highly social mustelid."},
-            {"name": "Hedgehog", "category": "mammal", "short_description": "Spiny insectivore, mostly nocturnal."},
-            {"name": "Leopard Gecko", "category": "reptile", "short_description": "Docile, beginner-friendly lizard."},
-            {"name": "Betta Fish", "category": "fish", "short_description": "Vibrant freshwater fighter fish."},
-            {"name": "Cockatiel", "category": "bird", "short_description": "Affectionate small parrot with a crest."},
-            {"name": "Guinea Pig", "category": "mammal", "short_description": "Social, vocal rodent."},
-            {"name": "Rabbit", "category": "mammal", "short_description": "Intelligent lagomorph, litter-trainable."},
-        ]
-        return [a for a in fallback if a["name"] not in exclude_names][:count]
-
-    try:
-        import anthropic
-    except ImportError:
-        return []
-
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     user_msg = f"Suggest {count} species. Exclude: {', '.join(exclude_names) or 'none'}."
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1500,
-        system=_ANIMAL_SYSTEM,
-        messages=[{"role": "user", "content": user_msg}],
-    )
-    text = "".join(block.text for block in msg.content if hasattr(block, "text"))
+    text = _ollama_chat(_ANIMAL_SYSTEM, user_msg) or _anthropic_chat(_ANIMAL_SYSTEM, user_msg)
+    if not text:
+        return [a for a in _CANNED_ANIMALS if a["name"] not in exclude_names][:count]
     try:
         data = json.loads(text)
         return data if isinstance(data, list) else []

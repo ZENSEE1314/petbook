@@ -22,6 +22,11 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
 
+    # Ollama Cloud — hosted LLM, no local infra.
+    ollama_api_key: str = ""
+    ollama_host: str = "https://ollama.com"
+    ollama_model: str = "gemma3:27b-cloud"
+
     # Deploy-time
     # Comma-separated list, or "*" to allow all (dev only).
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
