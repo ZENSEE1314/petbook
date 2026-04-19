@@ -5,16 +5,30 @@ const KEY = "petbook.cart";
 
 type CartMap = Record<number, { quantity: number; name: string; price_cents: number }>;
 
+// useSyncExternalStore requires getSnapshot to return a stable reference between
+// renders when nothing has changed, otherwise React infinite-loops (error #185).
+// We cache the parsed object keyed by the raw JSON string.
+let cachedJson: string | null = null;
+let cachedMap: CartMap = {};
+
 function read(): CartMap {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "{}") as CartMap;
-  } catch {
-    return {};
+  const json = localStorage.getItem(KEY) ?? "{}";
+  if (json !== cachedJson) {
+    cachedJson = json;
+    try {
+      cachedMap = JSON.parse(json) as CartMap;
+    } catch {
+      cachedMap = {};
+    }
   }
+  return cachedMap;
 }
 
 function write(cart: CartMap) {
-  localStorage.setItem(KEY, JSON.stringify(cart));
+  const json = JSON.stringify(cart);
+  localStorage.setItem(KEY, json);
+  cachedJson = json;
+  cachedMap = cart;
   for (const sub of subs) sub();
 }
 
@@ -26,7 +40,7 @@ function subscribe(fn: () => void) {
 
 export const cart = {
   add(product: Product, qty = 1) {
-    const c = read();
+    const c = { ...read() };
     const existing = c[product.id]?.quantity ?? 0;
     c[product.id] = {
       quantity: existing + qty,
@@ -36,14 +50,14 @@ export const cart = {
     write(c);
   },
   setQty(productId: number, qty: number) {
-    const c = read();
+    const c = { ...read() };
     if (!c[productId]) return;
     if (qty <= 0) delete c[productId];
-    else c[productId].quantity = qty;
+    else c[productId] = { ...c[productId], quantity: qty };
     write(c);
   },
   remove(productId: number) {
-    const c = read();
+    const c = { ...read() };
     delete c[productId];
     write(c);
   },
