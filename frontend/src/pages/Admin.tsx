@@ -185,11 +185,9 @@ function Animals() {
                 <p className="text-xs text-slate-500">{a.category ?? "—"}</p>
               </div>
               {a.has_guide ? (
-                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
-                  Published
-                </span>
+                <span className="chip-sage shrink-0">Published</span>
               ) : (
-                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Draft</span>
+                <span className="chip-slate shrink-0">Draft</span>
               )}
             </div>
             <p className="mt-2 line-clamp-2 text-sm text-slate-600">{a.short_description ?? "—"}</p>
@@ -200,11 +198,55 @@ function Animals() {
               <button onClick={() => setEditingGuide(a)} className="btn-secondary text-xs">
                 Edit guide
               </button>
+              <PublishToggle animal={a} onChanged={reload} />
             </div>
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+function PublishToggle({ animal, onChanged }: { animal: Animal; onChanged: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      // 1. Make sure a guide row exists, then read it.
+      let guide: GuideEntry;
+      try {
+        guide = await api.get<GuideEntry>(`/animals/${animal.slug}/guide`);
+      } catch {
+        guide = await api.put<GuideEntry>(`/animals/${animal.id}/guide`, { is_published: false });
+      }
+      // 2. Flip is_published, keep all the other fields intact.
+      const { id, animal_id, updated_at, ...editable } = guide;
+      void id;
+      void animal_id;
+      void updated_at;
+      await api.put<GuideEntry>(`/animals/${animal.id}/guide`, {
+        ...editable,
+        is_published: !guide.is_published,
+      });
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={busy}
+      className={`text-xs ${
+        animal.has_guide
+          ? "rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-50"
+          : "rounded-md bg-brand-600 px-2 py-1 font-semibold text-white hover:bg-brand-700"
+      } disabled:opacity-60`}
+    >
+      {busy ? "…" : animal.has_guide ? "Unpublish" : "Publish"}
+    </button>
   );
 }
 
@@ -450,14 +492,20 @@ function GuideEditor({
 
           <MediaManager animal={animal} />
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <input
               type="checkbox"
-              className="h-4 w-4 accent-brand-600"
+              className="mt-0.5 h-4 w-4 accent-brand-600"
               checked={guide.is_published}
               onChange={(e) => setGuide({ ...guide, is_published: e.target.checked })}
             />
-            Publish (visible to paid members)
+            <span>
+              <span className="font-semibold text-slate-900">Publish this guide</span>
+              <span className="block text-xs text-slate-500">
+                When on, paid members see the full guide. When off, the guide is hidden and the
+                Pet Guide index shows "Coming soon".
+              </span>
+            </span>
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
