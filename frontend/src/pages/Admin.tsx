@@ -691,7 +691,7 @@ function Orders() {
             <FilterChip
               key={s}
               active={filter === s}
-              label={`${s.replace("_", " ")} · ${counts[s] ?? 0}`}
+              label={`${s.replaceAll("_", " ")} · ${counts[s] ?? 0}`}
               onClick={() => setFilter(s)}
             />
           ))}
@@ -722,7 +722,7 @@ function Orders() {
                   </div>
                   <p className="text-right font-semibold">{formatPrice(o.total_cents)}</p>
                   <span className={`justify-self-start rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[o.status] ?? "bg-slate-100 text-slate-700"}`}>
-                    {o.status.replace("_", " ")}
+                    {o.status.replaceAll("_", " ")}
                   </span>
                   <div className="flex justify-end gap-2">
                     {action ? (
