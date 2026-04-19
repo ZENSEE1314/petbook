@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -71,29 +72,34 @@ def delete_user(
 # ---------- AI-assisted animal tools ----------
 
 
-@router.post("/animals/{animal_id}/generate-guide", response_model=GuideEntryOut)
+@router.post("/animals/{animal_id}/generate-guide")
 def ai_generate_guide(
     animal_id: int,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
-) -> GuideEntry:
+):
     animal = db.get(Animal, animal_id)
     if not animal:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Animal not found")
-    draft = generate_guide_draft(animal.name)
+    result = generate_guide_draft(animal.name)
     guide = animal.guide or GuideEntry(animal_id=animal.id)
     for field in (
         "story", "origin", "temperament", "colors",
         "lifespan_years", "weight_range", "length_range", "adult_size",
         "healthy_markers", "diet", "training", "housing", "common_issues", "age_stages",
     ):
-        if field in draft:
-            setattr(guide, field, draft[field])
+        if field in result.data:
+            setattr(guide, field, result.data[field])
     if not animal.guide:
         db.add(guide)
     db.commit()
     db.refresh(guide)
-    return guide
+
+    # Response includes the guide plus a meta block so the admin UI can show which
+    # backend filled it and surface the failure reason if Ollama/Anthropic fell back.
+    body = GuideEntryOut.model_validate(guide).model_dump(mode="json")
+    body["_ai"] = {"source": result.source, "error": result.error}
+    return JSONResponse(body)
 
 
 @router.post("/animals/suggest")
@@ -101,9 +107,10 @@ def ai_suggest_animals(
     data: SuggestIn,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
-) -> list[dict]:
+):
     existing = [a.name for a in db.query(Animal).all()]
-    return suggest_more_animals(count=data.count, exclude_names=existing)
+    result = suggest_more_animals(count=data.count, exclude_names=existing)
+    return {"source": result.source, "error": result.error, "animals": result.data}
 
 
 # ---------- Orders oversight ----------

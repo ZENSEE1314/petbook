@@ -120,20 +120,24 @@ function Animals() {
   }, []);
 
   async function suggestMore() {
-    const count = Number(prompt("How many species should Claude suggest?", "5"));
+    const count = Number(prompt("How many species should AI suggest?", "5"));
     if (!count) return;
-    const suggestions = await api.post<{ name: string; category: string; short_description: string }[]>(
-      "/admin/animals/suggest",
-      { count },
-    );
-    for (const s of suggestions) {
+    const resp = await api.post<{
+      source: string;
+      error: string | null;
+      animals: { name: string; category: string; short_description: string }[];
+    }>("/admin/animals/suggest", { count });
+    for (const s of resp.animals) {
       try {
         await api.post("/animals", s);
       } catch {
-        // skip dupes
+        /* skip dupes */
       }
     }
     await reload();
+    if (resp.source === "canned" && resp.error) {
+      alert(`AI unavailable — added canned fallback species.\n\n${resp.error}`);
+    }
   }
 
   return (
@@ -335,9 +339,22 @@ function GuideEditor({
     setBusy(true);
     setMessage(null);
     try {
-      const g = await api.post<GuideEntry>(`/admin/animals/${animal.id}/generate-guide`);
-      setGuide(g);
-      setMessage({ kind: "ok", text: "Draft loaded — review each field then Save guide." });
+      const resp = await api.post<GuideEntry & { _ai?: { source: string; error: string | null } }>(
+        `/admin/animals/${animal.id}/generate-guide`,
+      );
+      const { _ai, ...g } = resp;
+      setGuide(g as GuideEntry);
+      if (_ai?.source === "canned") {
+        setMessage({
+          kind: "err",
+          text: `AI unavailable — using placeholders. ${_ai.error ?? "Check OLLAMA_API_KEY / model name."}`,
+        });
+      } else {
+        setMessage({
+          kind: "ok",
+          text: `Draft loaded via ${_ai?.source ?? "AI"} — review each field then Save guide.`,
+        });
+      }
     } catch (err) {
       setMessage({ kind: "err", text: err instanceof Error ? err.message : "Draft failed" });
     } finally {

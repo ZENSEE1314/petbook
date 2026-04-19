@@ -2,7 +2,8 @@
 
 Calls Ollama Cloud when OLLAMA_API_KEY is set (hosted, no local GPU needed).
 Falls back to Anthropic if ANTHROPIC_API_KEY is set, then to a canned template
-so the app works offline.
+so the app works offline. Returns rich info dict so the admin UI can show why
+a fallback was used.
 """
 
 from __future__ import annotations
@@ -61,46 +62,11 @@ def _canned_guide(animal_name: str) -> dict[str, str]:
         "common_issues": "Edit me — common illnesses, injuries, behavioural problems and prevention.",
         "age_stages": json.dumps(
             [
-                {
-                    "stage": "newborn",
-                    "age_range": "0-? weeks",
-                    "size": "edit me",
-                    "feeding": "edit me",
-                    "milestones": "edit me",
-                    "notes": "edit me",
-                },
-                {
-                    "stage": "juvenile",
-                    "age_range": "? weeks - ? months",
-                    "size": "edit me",
-                    "feeding": "edit me",
-                    "milestones": "edit me",
-                    "notes": "edit me",
-                },
-                {
-                    "stage": "adolescent",
-                    "age_range": "? - ? months",
-                    "size": "edit me",
-                    "feeding": "edit me",
-                    "milestones": "edit me",
-                    "notes": "edit me",
-                },
-                {
-                    "stage": "adult",
-                    "age_range": "? - ? years",
-                    "size": "edit me",
-                    "feeding": "edit me",
-                    "milestones": "edit me",
-                    "notes": "edit me",
-                },
-                {
-                    "stage": "senior",
-                    "age_range": "?+ years",
-                    "size": "edit me",
-                    "feeding": "edit me",
-                    "milestones": "edit me",
-                    "notes": "edit me",
-                },
+                {"stage": "newborn", "age_range": "0-? weeks", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},
+                {"stage": "juvenile", "age_range": "? weeks - ? months", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},
+                {"stage": "adolescent", "age_range": "? - ? months", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},
+                {"stage": "adult", "age_range": "? - ? years", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},
+                {"stage": "senior", "age_range": "?+ years", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},
             ]
         ),
     }
@@ -118,13 +84,22 @@ _CANNED_ANIMALS = [
 ]
 
 
+class AiResult:
+    """Wrapper so callers know which backend produced the data (or why none did)."""
+
+    def __init__(self, data: dict | list, source: str, error: str | None = None):
+        self.data = data
+        self.source = source  # "ollama" | "anthropic" | "canned"
+        self.error = error
+
+
 # ---------- Ollama Cloud ----------
 
 
-def _ollama_chat(system: str, user: str) -> str | None:
-    """POST /api/chat to Ollama Cloud. Returns the model's raw text response, or None on failure."""
+def _ollama_chat(system: str, user: str) -> tuple[str | None, str | None]:
+    """POST /api/chat to Ollama Cloud. Returns (content, error)."""
     if not settings.ollama_api_key:
-        return None
+        return None, "OLLAMA_API_KEY not set"
     url = f"{settings.ollama_host.rstrip('/')}/api/chat"
     payload = {
         "model": settings.ollama_model,
@@ -133,28 +108,35 @@ def _ollama_chat(system: str, user: str) -> str | None:
             {"role": "user", "content": user},
         ],
         "stream": False,
-        "format": "json",
     }
     headers = {"Authorization": f"Bearer {settings.ollama_api_key}"}
     try:
         resp = httpx.post(url, json=payload, headers=headers, timeout=120.0)
-        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        return None, f"Ollama network error: {exc}"
+    if resp.status_code != 200:
+        snippet = resp.text[:300].replace("\n", " ")
+        return None, f"Ollama HTTP {resp.status_code}: {snippet}"
+    try:
         data = resp.json()
-        return data.get("message", {}).get("content")
-    except (httpx.HTTPError, ValueError):
-        return None
+    except ValueError:
+        return None, f"Ollama non-JSON response: {resp.text[:300]}"
+    content = (data.get("message") or {}).get("content")
+    if not content:
+        return None, f"Ollama empty content: {json.dumps(data)[:300]}"
+    return content, None
 
 
 # ---------- Anthropic (legacy fallback) ----------
 
 
-def _anthropic_chat(system: str, user: str) -> str | None:
+def _anthropic_chat(system: str, user: str) -> tuple[str | None, str | None]:
     if not settings.anthropic_api_key:
-        return None
+        return None, "ANTHROPIC_API_KEY not set"
     try:
-        import anthropic  # lazy import
+        import anthropic
     except ImportError:
-        return None
+        return None, "anthropic package missing"
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         msg = client.messages.create(
@@ -163,35 +145,87 @@ def _anthropic_chat(system: str, user: str) -> str | None:
             system=system,
             messages=[{"role": "user", "content": user}],
         )
-        return "".join(block.text for block in msg.content if hasattr(block, "text"))
-    except Exception:  # noqa: BLE001 — any network/auth failure falls back to canned
+        text = "".join(block.text for block in msg.content if hasattr(block, "text"))
+        if not text:
+            return None, "Anthropic returned empty text"
+        return text, None
+    except Exception as exc:  # noqa: BLE001
+        return None, f"Anthropic error: {exc}"
+
+
+# ---------- Helpers ----------
+
+
+def _parse_json_loose(text: str) -> Any | None:
+    """Some models wrap JSON in markdown fences. Strip and parse."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.strip("`")
+        if stripped.startswith("json"):
+            stripped = stripped[4:]
+        stripped = stripped.strip()
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
         return None
 
 
 # ---------- Public API ----------
 
 
-def generate_guide_draft(animal_name: str) -> dict[str, str]:
-    text = _ollama_chat(_GUIDE_SYSTEM, f"Species: {animal_name}") or _anthropic_chat(
-        _GUIDE_SYSTEM, f"Species: {animal_name}"
-    )
-    if not text:
-        return _canned_guide(animal_name)
-    try:
-        data: dict[str, Any] = json.loads(text)
-    except json.JSONDecodeError:
-        return _canned_guide(animal_name)
-    return {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in data.items()}
+def generate_guide_draft(animal_name: str) -> AiResult:
+    user_msg = f"Species: {animal_name}"
+    errors: list[str] = []
+
+    text, err = _ollama_chat(_GUIDE_SYSTEM, user_msg)
+    if err:
+        errors.append(f"ollama: {err}")
+    if text:
+        parsed = _parse_json_loose(text)
+        if isinstance(parsed, dict):
+            return AiResult(
+                {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in parsed.items()},
+                "ollama",
+            )
+        errors.append(f"ollama: non-JSON body: {text[:200]}")
+
+    text, err = _anthropic_chat(_GUIDE_SYSTEM, user_msg)
+    if err:
+        errors.append(f"anthropic: {err}")
+    if text:
+        parsed = _parse_json_loose(text)
+        if isinstance(parsed, dict):
+            return AiResult(
+                {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in parsed.items()},
+                "anthropic",
+            )
+        errors.append(f"anthropic: non-JSON body: {text[:200]}")
+
+    return AiResult(_canned_guide(animal_name), "canned", " | ".join(errors) or None)
 
 
-def suggest_more_animals(count: int = 5, exclude_names: list[str] | None = None) -> list[dict[str, str]]:
+def suggest_more_animals(count: int = 5, exclude_names: list[str] | None = None) -> AiResult:
     exclude_names = exclude_names or []
     user_msg = f"Suggest {count} species. Exclude: {', '.join(exclude_names) or 'none'}."
-    text = _ollama_chat(_ANIMAL_SYSTEM, user_msg) or _anthropic_chat(_ANIMAL_SYSTEM, user_msg)
-    if not text:
-        return [a for a in _CANNED_ANIMALS if a["name"] not in exclude_names][:count]
-    try:
-        data = json.loads(text)
-        return data if isinstance(data, list) else []
-    except json.JSONDecodeError:
-        return []
+    errors: list[str] = []
+
+    text, err = _ollama_chat(_ANIMAL_SYSTEM, user_msg)
+    if err:
+        errors.append(f"ollama: {err}")
+    if text:
+        parsed = _parse_json_loose(text)
+        if isinstance(parsed, list):
+            return AiResult(parsed, "ollama")
+        errors.append(f"ollama: non-JSON body: {text[:200]}")
+
+    text, err = _anthropic_chat(_ANIMAL_SYSTEM, user_msg)
+    if err:
+        errors.append(f"anthropic: {err}")
+    if text:
+        parsed = _parse_json_loose(text)
+        if isinstance(parsed, list):
+            return AiResult(parsed, "anthropic")
+        errors.append(f"anthropic: non-JSON body: {text[:200]}")
+
+    fallback = [a for a in _CANNED_ANIMALS if a["name"] not in exclude_names][:count]
+    return AiResult(fallback, "canned", " | ".join(errors) or None)
