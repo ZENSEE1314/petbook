@@ -18,14 +18,15 @@ export function Listings() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Pet Listings</h1>
+          <p className="eyebrow">Marketplace</p>
+          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight sm:text-4xl">Pet Listings</h1>
           <p className="text-slate-600">Find your next companion from other Petbook members.</p>
         </div>
         {user?.is_paid ? (
           <Link to="/listings/new" className="btn-primary">
-            Post a listing
+            + Post a listing
           </Link>
         ) : (
           <Link to="/subscribe" className="btn-secondary">
@@ -35,23 +36,29 @@ export function Listings() {
       </div>
 
       {listings.length === 0 ? (
-        <p className="py-10 text-center text-slate-500">No active listings yet.</p>
+        <div className="card flex flex-col items-center gap-2 p-10 text-center">
+          <div className="text-3xl">🐾</div>
+          <h3 className="font-display text-lg font-semibold">No active listings yet</h3>
+          <p className="max-w-sm text-sm text-slate-600">
+            When members list their pets, they'll appear here. Members can post listings any time.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {listings.map((l) => (
-            <Link key={l.id} to={`/listings/${l.id}`} className="card overflow-hidden hover:shadow-md">
+            <Link key={l.id} to={`/listings/${l.id}`} className="card-hover group overflow-hidden">
               {l.image_url ? (
-                <img src={l.image_url} alt="" className="h-40 w-full object-cover" />
+                <img src={l.image_url} alt="" className="h-44 w-full object-cover transition group-hover:scale-[1.02]" />
               ) : (
-                <div className="flex h-40 items-center justify-center bg-slate-100 text-5xl">🐾</div>
+                <div className="flex h-44 items-center justify-center bg-gradient-to-br from-cream-100 to-brand-100 text-5xl">🐾</div>
               )}
-              <div className="p-3">
-                <p className="font-semibold">{l.title}</p>
-                <p className="text-sm text-slate-500">
+              <div className="p-4">
+                <p className="font-display text-lg font-semibold leading-tight group-hover:text-brand-700">{l.title}</p>
+                <p className="mt-0.5 text-sm text-slate-500">
                   {l.animal_id ? animalById.get(l.animal_id)?.name : "Pet"} ·{" "}
                   {l.location ?? "location unspecified"}
                 </p>
-                <p className="mt-2 font-bold text-brand-600">{formatPrice(l.price_cents)}</p>
+                <p className="mt-2 font-display text-xl font-bold text-brand-600">{formatPrice(l.price_cents)}</p>
                 <p className="mt-1 text-xs text-slate-400">
                   by {l.seller_display_name ?? "Seller"} · {formatTimeAgo(l.created_at)}
                 </p>

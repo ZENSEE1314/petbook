@@ -21,21 +21,47 @@ export function Feed() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4">
-      {user ? (
-        <PostComposer animals={animals} onCreated={(p) => setPosts((prev) => [p, ...prev])} />
-      ) : (
-        <div className="card p-4 text-center text-sm text-slate-600">
-          <Link to="/register" className="font-semibold text-brand-600 hover:underline">
-            Join
-          </Link>{" "}
-          to post your own pet or like someone else's.
-        </div>
+    <div className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
+      {!user && (
+        <section className="rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 p-6 text-white shadow-elev-3 sm:p-8">
+          <p className="eyebrow !text-white/80">Petbook · social</p>
+          <h1 className="mt-2 font-display text-3xl font-bold leading-tight sm:text-4xl">
+            Share your pet's day. Shop for their tomorrow.
+          </h1>
+          <p className="mt-3 max-w-md text-brand-50/90">
+            A cosy home for pet owners — a social feed, science-backed care guides, and a trusted shop.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link to="/register" className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-elev-1 hover:bg-cream-50">
+              Join free
+            </Link>
+            <Link to="/guide" className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10">
+              Browse pet guides
+            </Link>
+          </div>
+        </section>
       )}
+
+      {user && (
+        <PostComposer animals={animals} onCreated={(p) => setPosts((prev) => [p, ...prev])} />
+      )}
+
       {loading ? (
-        <p className="text-slate-500">Loading posts…</p>
+        <div className="space-y-3">
+          <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+          <div className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+        </div>
       ) : posts.length === 0 ? (
-        <p className="py-10 text-center text-slate-500">No posts yet — be the first.</p>
+        <div className="card fade-in flex flex-col items-center gap-3 p-10 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 text-3xl">🐾</div>
+          <h3 className="font-display text-xl font-semibold">No posts yet</h3>
+          <p className="max-w-xs text-sm text-slate-600">
+            Be the first to share a photo of your pet. Paws, whiskers, scales — we welcome them all.
+          </p>
+          {!user && (
+            <Link to="/register" className="btn-primary mt-2">Create an account</Link>
+          )}
+        </div>
       ) : (
         posts.map((post) => (
           <PostCard
