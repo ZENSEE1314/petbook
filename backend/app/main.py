@@ -19,13 +19,20 @@ from .routes import admin, animals, auth, listings, orders, posts, products, sub
 # Columns added to guide_entries after the first deploy. Running `ALTER TABLE ... ADD COLUMN
 # IF NOT EXISTS` on startup lets existing Postgres rows pick up the richer guide schema
 # without needing Alembic for this MVP.
-_GUIDE_ADDITIONS: list[tuple[str, str]] = [
-    ("story", "TEXT"),
-    ("origin", "VARCHAR(200)"),
-    ("temperament", "TEXT"),
-    ("colors", "TEXT"),
-    ("weight_range", "VARCHAR(80)"),
-    ("length_range", "VARCHAR(80)"),
+_SCHEMA_ADDITIONS: list[tuple[str, str, str]] = [
+    # Richer pet guide
+    ("guide_entries", "story", "TEXT"),
+    ("guide_entries", "origin", "VARCHAR(200)"),
+    ("guide_entries", "temperament", "TEXT"),
+    ("guide_entries", "colors", "TEXT"),
+    ("guide_entries", "weight_range", "VARCHAR(80)"),
+    ("guide_entries", "length_range", "VARCHAR(80)"),
+    # Per-product shipping fee
+    ("products", "ship_local_cents", "INTEGER NOT NULL DEFAULT 0"),
+    ("products", "ship_overseas_cents", "INTEGER NOT NULL DEFAULT 0"),
+    # Order shipping breakdown
+    ("orders", "shipping_cents", "INTEGER NOT NULL DEFAULT 0"),
+    ("orders", "ship_region", "VARCHAR(20) NOT NULL DEFAULT 'local'"),
 ]
 
 
@@ -33,8 +40,8 @@ def _inline_migrations() -> None:
     if not engine.url.get_backend_name().startswith("postgres"):
         return
     with engine.begin() as conn:
-        for col, ddl in _GUIDE_ADDITIONS:
-            conn.execute(text(f"ALTER TABLE guide_entries ADD COLUMN IF NOT EXISTS {col} {ddl}"))
+        for table, col, ddl in _SCHEMA_ADDITIONS:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {ddl}"))
 
 app = FastAPI(title="Petbook API", version="0.1.0")
 

@@ -2,14 +2,15 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { cart, cartTotals, useCart } from "../lib/cart";
+import { cart, cartTotals, type ShipRegion, useCart } from "../lib/cart";
 import { formatPrice } from "../lib/format";
 
 export function Cart() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const cartMap = useCart();
-  const totals = cartTotals(cartMap);
+  const [region, setRegion] = useState<ShipRegion>("local");
+  const totals = cartTotals(cartMap, region);
 
   const [name, setName] = useState(user?.display_name ?? "");
   const [address, setAddress] = useState("");
@@ -37,6 +38,7 @@ export function Cart() {
           shipping_name: name,
           shipping_address: address,
           shipping_phone: phone || null,
+          ship_region: region,
         },
       );
       cart.clear();
@@ -107,9 +109,47 @@ export function Cart() {
             <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
 
-          <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-bold">
-            <span>Total</span>
-            <span>{formatPrice(totals.totalCents)}</span>
+          <div>
+            <label className="label">Shipping region</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRegion("local")}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm ${
+                  region === "local"
+                    ? "border-brand-600 bg-brand-50 font-semibold text-brand-700"
+                    : "border-slate-300 text-slate-600"
+                }`}
+              >
+                Local
+              </button>
+              <button
+                type="button"
+                onClick={() => setRegion("overseas")}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm ${
+                  region === "overseas"
+                    ? "border-brand-600 bg-brand-50 font-semibold text-brand-700"
+                    : "border-slate-300 text-slate-600"
+                }`}
+              >
+                Overseas
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1 border-t border-slate-200 pt-3 text-sm">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatPrice(totals.subtotalCents)}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>Shipping ({region})</span>
+              <span>{totals.shippingCents > 0 ? formatPrice(totals.shippingCents) : "Free"}</span>
+            </div>
+            <div className="flex justify-between pt-1 text-lg font-bold">
+              <span>Total</span>
+              <span>{formatPrice(totals.totalCents)}</span>
+            </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button className="btn-primary w-full" disabled={busy}>

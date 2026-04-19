@@ -184,6 +184,10 @@ class Product(Base):
     image_url: Mapped[str | None] = mapped_column(String(400))
     # Which animals this product is suitable for — JSON list of animal slugs.
     suitable_for: Mapped[str | None] = mapped_column(Text)
+    # Per-product shipping fee — order shipping is the MAX across items in the cart,
+    # using whichever column matches the buyer-selected region at checkout.
+    ship_local_cents: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ship_overseas_cents: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -197,8 +201,10 @@ class Order(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    total_cents: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending/paid/shipped/cancelled
+    total_cents: Mapped[int] = mapped_column(Integer, nullable=False)   # items + shipping
+    shipping_cents: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ship_region: Mapped[str] = mapped_column(String(20), default="local", nullable=False)  # local/overseas
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending/paid/ready_to_ship/shipped/delivered/cancelled
     shipping_name: Mapped[str | None] = mapped_column(String(120))
     shipping_address: Mapped[str | None] = mapped_column(Text)
     shipping_phone: Mapped[str | None] = mapped_column(String(40))

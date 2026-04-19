@@ -158,6 +158,8 @@ class ProductIn(BaseModel):
     stock: int = Field(ge=0, default=0)
     image_url: str | None = None
     suitable_for: str | None = None
+    ship_local_cents: int = Field(ge=0, default=0)
+    ship_overseas_cents: int = Field(ge=0, default=0)
     is_active: bool = True
 
 
@@ -171,6 +173,8 @@ class ProductOut(BaseModel):
     stock: int
     image_url: str | None
     suitable_for: str | None
+    ship_local_cents: int
+    ship_overseas_cents: int
     is_active: bool
 
     class Config:
@@ -187,6 +191,7 @@ class CheckoutIn(BaseModel):
     shipping_name: str
     shipping_address: str
     shipping_phone: str | None = None
+    ship_region: str = "local"  # "local" or "overseas"
 
 
 class OrderItemOut(BaseModel):
@@ -203,7 +208,11 @@ class OrderItemOut(BaseModel):
 class OrderOut(BaseModel):
     id: int
     user_id: int
+    buyer_email: str | None = None
+    buyer_display_name: str | None = None
     total_cents: int
+    shipping_cents: int = 0
+    ship_region: str = "local"
     status: str
     shipping_name: str | None
     shipping_address: str | None

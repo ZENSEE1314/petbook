@@ -116,4 +116,6 @@ def all_orders(
 ) -> list[OrderOut]:
     orders = db.query(Order).order_by(Order.created_at.desc()).all()
     from .orders import _to_out  # local import to avoid circular at module load
-    return [_to_out(o) for o in orders]
+    buyer_ids = {o.user_id for o in orders}
+    buyers = {u.id: u for u in db.query(User).filter(User.id.in_(buyer_ids)).all()} if buyer_ids else {}
+    return [_to_out(o, buyers.get(o.user_id)) for o in orders]

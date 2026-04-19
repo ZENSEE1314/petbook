@@ -73,9 +73,19 @@ export function OrderDetail() {
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex justify-between border-t border-slate-200 pt-3 font-bold">
-          <span>Total</span>
-          <span>{formatPrice(order.total_cents)}</span>
+        <div className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-sm">
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>{formatPrice(order.total_cents - order.shipping_cents)}</span>
+          </div>
+          <div className="flex justify-between text-slate-600">
+            <span>Shipping ({order.ship_region})</span>
+            <span>{order.shipping_cents > 0 ? formatPrice(order.shipping_cents) : "Free"}</span>
+          </div>
+          <div className="flex justify-between pt-1 text-lg font-bold">
+            <span>Total</span>
+            <span>{formatPrice(order.total_cents)}</span>
+          </div>
         </div>
 
         <div className="mt-6 text-sm text-slate-600">

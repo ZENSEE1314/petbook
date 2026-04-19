@@ -15,10 +15,15 @@ from ..schemas import CheckoutIn, CheckoutOut, OrderItemOut, OrderOut
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
-def _to_out(order: Order) -> OrderOut:
+ALLOWED_STATUSES = {"pending", "paid", "ready_to_ship", "shipped", "delivered", "cancelled"}
+
+
+def _to_out(order: Order, buyer: User | None = None) -> OrderOut:
     return OrderOut(
         id=order.id,
         user_id=order.user_id,
+        buyer_email=buyer.email if buyer else None,
+        buyer_display_name=buyer.display_name if buyer else None,
         total_cents=order.total_cents,
         status=order.status,
         shipping_name=order.shipping_name,
@@ -38,10 +43,12 @@ def checkout(
 ) -> CheckoutOut:
     if not data.items:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cart is empty")
+    region = data.ship_region if data.ship_region in {"local", "overseas"} else "local"
 
     order = Order(
         user_id=user.id,
         total_cents=0,
+        ship_region=region,
         shipping_name=data.shipping_name,
         shipping_address=data.shipping_address,
         shipping_phone=data.shipping_phone,
@@ -49,7 +56,8 @@ def checkout(
     db.add(order)
     db.flush()
 
-    total = 0
+    items_total = 0
+    max_ship_cents = 0
     for line in data.items:
         product = db.get(Product, line.product_id)
         if not product or not product.is_active:
@@ -66,14 +74,20 @@ def checkout(
                 quantity=line.quantity,
             )
         )
-        total += product.price_cents * line.quantity
+        items_total += product.price_cents * line.quantity
+        per_item_ship = (
+            product.ship_overseas_cents if region == "overseas" else product.ship_local_cents
+        )
+        if per_item_ship > max_ship_cents:
+            max_ship_cents = per_item_ship
 
-    order.total_cents = total
+    order.shipping_cents = max_ship_cents
+    order.total_cents = items_total + max_ship_cents
     db.commit()
     db.refresh(order)
 
     checkout_url = _create_stripe_order_session(order, user, request)
-    return CheckoutOut(order_id=order.id, checkout_url=checkout_url, order=_to_out(order))
+    return CheckoutOut(order_id=order.id, checkout_url=checkout_url, order=_to_out(order, user))
 
 
 def _create_stripe_order_session(order: Order, user: User, request: Request) -> str | None:
@@ -97,6 +111,17 @@ def _create_stripe_order_session(order: Order, user: User, request: Request) -> 
         }
         for item in order.items
     ]
+    if order.shipping_cents > 0:
+        line_items.append(
+            {
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": f"Shipping ({order.ship_region})"},
+                    "unit_amount": order.shipping_cents,
+                },
+                "quantity": 1,
+            }
+        )
     session = stripe.checkout.Session.create(
         mode="payment",
         line_items=line_items,
@@ -119,7 +144,7 @@ def my_orders(
         .order_by(Order.created_at.desc())
         .all()
     )
-    return [_to_out(o) for o in orders]
+    return [_to_out(o, user) for o in orders]
 
 
 @router.get("/{order_id}", response_model=OrderOut)
@@ -131,7 +156,8 @@ def get_order(
     order = db.get(Order, order_id)
     if not order or (order.user_id != user.id and not user.is_admin):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-    return _to_out(order)
+    buyer = db.get(User, order.user_id)
+    return _to_out(order, buyer)
 
 
 @router.patch("/{order_id}/status", response_model=OrderOut)
@@ -141,12 +167,13 @@ def update_order_status(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ) -> OrderOut:
-    if new_status not in {"pending", "paid", "shipped", "cancelled"}:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid status")
+    if new_status not in ALLOWED_STATUSES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Status must be one of {sorted(ALLOWED_STATUSES)}")
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     order.status = new_status
     db.commit()
     db.refresh(order)
-    return _to_out(order)
+    buyer = db.get(User, order.user_id)
+    return _to_out(order, buyer)

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { api, type Animal, type GuideEntry, type Product, type User } from "../api";
+import { api, type Animal, type GuideEntry, type Order, type Product, type User } from "../api";
 import { ImageUpload } from "../components/ImageUpload";
-import { formatDate, formatPrice } from "../lib/format";
+import { formatDate, formatPrice, formatTimeAgo } from "../lib/format";
 
 export function Admin() {
   const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -17,11 +17,13 @@ export function Admin() {
         <NavLink end to="/admin" className={tabClass}>Users</NavLink>
         <NavLink to="/admin/animals" className={tabClass}>Animals & Guides</NavLink>
         <NavLink to="/admin/products" className={tabClass}>Products</NavLink>
+        <NavLink to="/admin/orders" className={tabClass}>Orders</NavLink>
       </nav>
       <Routes>
         <Route index element={<Users />} />
         <Route path="animals" element={<Animals />} />
         <Route path="products" element={<Products />} />
+        <Route path="orders" element={<Orders />} />
       </Routes>
     </div>
   );
@@ -424,6 +426,8 @@ function Products() {
               stock: 0,
               image_url: null,
               suitable_for: "[]",
+              ship_local_cents: 0,
+              ship_overseas_cents: 0,
               is_active: true,
             })
           }
@@ -495,11 +499,23 @@ function ProductForm({
     setData({ ...data, [key]: value });
   }
 
+  const [shipLocalDollars, setShipLocalDollars] = useState(
+    (initial.ship_local_cents / 100).toFixed(2),
+  );
+  const [shipOverseasDollars, setShipOverseasDollars] = useState(
+    (initial.ship_overseas_cents / 100).toFixed(2),
+  );
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const body = { ...data, price_cents: Math.round(Number(priceDollars) * 100) };
+      const body = {
+        ...data,
+        price_cents: Math.round(Number(priceDollars) * 100),
+        ship_local_cents: Math.round(Number(shipLocalDollars) * 100),
+        ship_overseas_cents: Math.round(Number(shipOverseasDollars) * 100),
+      };
       if (initial.id === 0) {
         await api.post("/products", body);
       } else {
@@ -550,6 +566,19 @@ function ProductForm({
         <label className="label">Suitable for (JSON array of animal slugs, e.g. ["cat","dog"])</label>
         <input className="input" value={data.suitable_for ?? ""} onChange={(e) => bind("suitable_for", e.target.value)} />
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">Local shipping fee (USD)</label>
+          <input className="input" type="number" step="0.01" min={0} value={shipLocalDollars} onChange={(e) => setShipLocalDollars(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Overseas shipping fee (USD)</label>
+          <input className="input" type="number" step="0.01" min={0} value={shipOverseasDollars} onChange={(e) => setShipOverseasDollars(e.target.value)} />
+        </div>
+      </div>
+      <p className="text-xs text-slate-500">
+        Order shipping is the highest per-product fee in the cart, not summed — one shipping charge per order.
+      </p>
       <ImageUpload value={data.image_url} onChange={(url) => bind("image_url", url)} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={data.is_active} onChange={(e) => bind("is_active", e.target.checked)} />
@@ -564,5 +593,170 @@ function ProductForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// ---------- Orders ----------
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-slate-100 text-slate-700",
+  paid: "bg-emerald-100 text-emerald-700",
+  ready_to_ship: "bg-amber-100 text-amber-700",
+  shipped: "bg-sky-100 text-sky-700",
+  delivered: "bg-indigo-100 text-indigo-700",
+  cancelled: "bg-rose-100 text-rose-700",
+};
+
+const NEXT_STATUS: Record<string, { label: string; next: string } | null> = {
+  pending: { label: "Mark paid", next: "paid" },
+  paid: { label: "Mark ready to ship", next: "ready_to_ship" },
+  ready_to_ship: { label: "Mark shipped", next: "shipped" },
+  shipped: { label: "Mark delivered", next: "delivered" },
+  delivered: null,
+  cancelled: null,
+};
+
+function Orders() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filter, setFilter] = useState<string>("");
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+
+  async function reload() {
+    setOrders(await api.get<Order[]>("/admin/orders"));
+  }
+
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  async function advance(order: Order) {
+    const action = NEXT_STATUS[order.status];
+    if (!action) return;
+    setBusy(order.id);
+    try {
+      const updated = await api.patch<Order>(
+        `/orders/${order.id}/status?new_status=${action.next}`,
+      );
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function cancel(order: Order) {
+    if (!confirm(`Cancel order #${order.id}?`)) return;
+    const updated = await api.patch<Order>(`/orders/${order.id}/status?new_status=cancelled`);
+    setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
+  }
+
+  const filtered = filter ? orders.filter((o) => o.status === filter) : orders;
+  const counts: Record<string, number> = {};
+  for (const o of orders) counts[o.status] = (counts[o.status] ?? 0) + 1;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-xl font-bold">Orders ({orders.length})</h2>
+        <div className="ml-auto flex flex-wrap gap-1">
+          <FilterChip active={filter === ""} label={`All · ${orders.length}`} onClick={() => setFilter("")} />
+          {["pending", "paid", "ready_to_ship", "shipped", "delivered", "cancelled"].map((s) => (
+            <FilterChip
+              key={s}
+              active={filter === s}
+              label={`${s.replace("_", " ")} · ${counts[s] ?? 0}`}
+              onClick={() => setFilter(s)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="py-10 text-center text-slate-500">No orders match.</p>
+      ) : (
+        <ul className="space-y-3">
+          {filtered.map((o) => {
+            const action = NEXT_STATUS[o.status];
+            const isOpen = expanded === o.id;
+            return (
+              <li key={o.id} className="card overflow-hidden">
+                <div className="grid items-center gap-3 p-4 md:grid-cols-[80px_1fr_1fr_120px_160px_auto]">
+                  <button onClick={() => setExpanded(isOpen ? null : o.id)} className="text-left">
+                    <span className="font-semibold text-brand-600">#{o.id}</span>
+                    <p className="text-xs text-slate-500">{formatTimeAgo(o.created_at)}</p>
+                  </button>
+                  <div>
+                    <p className="text-sm font-medium">{o.buyer_display_name ?? "—"}</p>
+                    <p className="text-xs text-slate-500">{o.buyer_email}</p>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    <p>{o.shipping_name ?? "—"}</p>
+                    <p className="line-clamp-1 text-xs text-slate-400">{o.shipping_address}</p>
+                  </div>
+                  <p className="text-right font-semibold">{formatPrice(o.total_cents)}</p>
+                  <span className={`justify-self-start rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[o.status] ?? "bg-slate-100 text-slate-700"}`}>
+                    {o.status.replace("_", " ")}
+                  </span>
+                  <div className="flex justify-end gap-2">
+                    {action ? (
+                      <button
+                        onClick={() => advance(o)}
+                        disabled={busy === o.id}
+                        className="btn-primary text-xs"
+                      >
+                        {busy === o.id ? "…" : action.label}
+                      </button>
+                    ) : null}
+                    {o.status !== "delivered" && o.status !== "cancelled" && (
+                      <button onClick={() => cancel(o)} className="btn-secondary text-xs text-red-600">
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {isOpen && (
+                  <div className="border-t border-slate-100 bg-slate-50 p-4 text-sm">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <section>
+                        <h4 className="mb-1 font-semibold">Items</h4>
+                        <ul className="divide-y divide-slate-200">
+                          {o.items.map((it) => (
+                            <li key={it.id} className="flex justify-between py-1">
+                              <span>{it.product_name} × {it.quantity}</span>
+                              <span className="text-slate-700">{formatPrice(it.unit_price_cents * it.quantity)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                      <section>
+                        <h4 className="mb-1 font-semibold">Shipping</h4>
+                        <p>{o.shipping_name}</p>
+                        <p className="whitespace-pre-wrap text-slate-700">{o.shipping_address}</p>
+                        {o.shipping_phone && <p>Tel: {o.shipping_phone}</p>}
+                        <p className="mt-2 text-xs text-slate-500">Placed {formatDate(o.created_at)}</p>
+                      </section>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function FilterChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
+        active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

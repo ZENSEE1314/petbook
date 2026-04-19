@@ -138,13 +138,19 @@ export type Product = {
   stock: number;
   image_url: string | null;
   suitable_for: string | null;
+  ship_local_cents: number;
+  ship_overseas_cents: number;
   is_active: boolean;
 };
 
 export type Order = {
   id: number;
   user_id: number;
+  buyer_email: string | null;
+  buyer_display_name: string | null;
   total_cents: number;
+  shipping_cents: number;
+  ship_region: string;
   status: string;
   shipping_name: string | null;
   shipping_address: string | null;

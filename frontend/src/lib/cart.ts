@@ -3,7 +3,18 @@ import type { Product } from "../api";
 
 const KEY = "petbook.cart";
 
-type CartMap = Record<number, { quantity: number; name: string; price_cents: number }>;
+type CartMap = Record<
+  number,
+  {
+    quantity: number;
+    name: string;
+    price_cents: number;
+    ship_local_cents?: number;
+    ship_overseas_cents?: number;
+  }
+>;
+
+export type ShipRegion = "local" | "overseas";
 
 // useSyncExternalStore requires getSnapshot to return a stable reference between
 // renders when nothing has changed, otherwise React infinite-loops (error #185).
@@ -46,6 +57,8 @@ export const cart = {
       quantity: existing + qty,
       name: product.name,
       price_cents: product.price_cents,
+      ship_local_cents: product.ship_local_cents,
+      ship_overseas_cents: product.ship_overseas_cents,
     };
     write(c);
   },
@@ -71,13 +84,23 @@ export function useCart() {
   return useSyncExternalStore(subscribe, read, read);
 }
 
-export function cartTotals(c: CartMap) {
+export function cartTotals(c: CartMap, region: ShipRegion = "local") {
   const items = Object.entries(c);
-  let totalCents = 0;
+  let subtotalCents = 0;
   let totalQty = 0;
+  let shippingCents = 0;
   for (const [, item] of items) {
-    totalCents += item.price_cents * item.quantity;
+    subtotalCents += item.price_cents * item.quantity;
     totalQty += item.quantity;
+    const itemShip =
+      region === "overseas" ? item.ship_overseas_cents ?? 0 : item.ship_local_cents ?? 0;
+    if (itemShip > shippingCents) shippingCents = itemShip;
   }
-  return { totalCents, totalQty, count: items.length };
+  return {
+    subtotalCents,
+    shippingCents,
+    totalCents: subtotalCents + shippingCents,
+    totalQty,
+    count: items.length,
+  };
 }
