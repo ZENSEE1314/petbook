@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, ApiError, type Animal, type GuideEntry, type GuideMedia, type Product } from "../api";
+import {
+  api,
+  ApiError,
+  type Animal,
+  type GuideAnswer,
+  type GuideEntry,
+  type GuideMedia,
+  type GuideQuestion,
+  type Product,
+  type ReviewsResponse,
+} from "../api";
 import { useAuth } from "../auth";
-import { formatPrice } from "../lib/format";
+import { formatPrice, formatTimeAgo } from "../lib/format";
 
 export function AnimalDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -173,6 +183,9 @@ export function AnimalDetail() {
         </section>
       )}
 
+      {animal && <ReviewsSection animal={animal} />}
+      {animal && <ForumSection animal={animal} />}
+
       {related.length > 0 && (
         <section>
           <h2 className="mb-3 text-xl font-bold">Recommended products</h2>
@@ -221,6 +234,310 @@ type Stage = {
   milestones?: string;
   notes?: string;
 };
+
+// ---------- Reviews ----------
+
+function Stars({ value, onChange, size = "md" }: { value: number; onChange?: (v: number) => void; size?: "sm" | "md" }) {
+  const readOnly = !onChange;
+  return (
+    <div className={`inline-flex gap-0.5 ${size === "sm" ? "text-sm" : "text-xl"}`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          disabled={readOnly}
+          onClick={() => onChange?.(n)}
+          className={`${n <= value ? "text-amber-400" : "text-slate-300"} transition ${
+            !readOnly ? "hover:scale-110 cursor-pointer" : "cursor-default"
+          }`}
+          aria-label={`${n} stars`}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReviewsSection({ animal }: { animal: Animal }) {
+  const { user } = useAuth();
+  const [data, setData] = useState<ReviewsResponse | null>(null);
+  const [stars, setStars] = useState(5);
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      setData(await api.get<ReviewsResponse>(`/animals/${animal.slug}/reviews`));
+    } catch {
+      setData({ summary: { average: 0, count: 0 }, reviews: [] });
+    }
+  }
+  useEffect(() => {
+    void reload();
+  }, [animal.slug]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post(`/animals/${animal.id}/reviews`, { stars, body: body || null });
+      setBody("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const mine = data?.reviews.find((r) => r.user_id === user?.id);
+
+  return (
+    <section>
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <h2 className="font-display text-xl font-bold">Reviews</h2>
+        {data && data.summary.count > 0 && (
+          <p className="text-sm text-slate-600">
+            <Stars value={Math.round(data.summary.average)} size="sm" />{" "}
+            <span className="font-semibold">{data.summary.average.toFixed(1)}</span>{" "}
+            <span className="text-slate-400">· {data.summary.count} review{data.summary.count === 1 ? "" : "s"}</span>
+          </p>
+        )}
+      </div>
+
+      {user ? (
+        <form onSubmit={submit} className="card mb-4 space-y-3 p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-700">Your rating:</span>
+            <Stars value={stars} onChange={setStars} />
+          </div>
+          <textarea
+            className="input min-h-[70px]"
+            placeholder={mine ? "Update your review…" : "Share your experience with this species (optional)"}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={2000}
+          />
+          <button className="btn-primary text-sm" disabled={busy}>
+            {busy ? "Saving…" : mine ? "Update my review" : "Post review"}
+          </button>
+        </form>
+      ) : (
+        <div className="card mb-4 p-4 text-center text-sm text-slate-600">
+          <Link to="/register" className="text-brand-600 underline">Join</Link> to leave a rating and review.
+        </div>
+      )}
+
+      {data && data.reviews.length === 0 ? (
+        <p className="text-sm text-slate-500">No reviews yet — be the first.</p>
+      ) : (
+        <ul className="space-y-3">
+          {data?.reviews.map((r) => (
+            <li key={r.id} className="card p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">{r.author_name ?? "Anonymous"}</p>
+                  <Stars value={r.stars} size="sm" />
+                </div>
+                <p className="text-xs text-slate-400">{formatTimeAgo(r.created_at)}</p>
+              </div>
+              {r.body && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{r.body}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ---------- Forum ----------
+
+function ForumSection({ animal }: { animal: Animal }) {
+  const { user } = useAuth();
+  const [questions, setQuestions] = useState<GuideQuestion[]>([]);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [openId, setOpenId] = useState<number | null>(null);
+
+  async function reload() {
+    try {
+      setQuestions(await api.get<GuideQuestion[]>(`/animals/${animal.slug}/questions`));
+    } catch {
+      setQuestions([]);
+    }
+  }
+  useEffect(() => {
+    void reload();
+  }, [animal.slug]);
+
+  async function ask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true);
+    try {
+      await api.post(`/animals/${animal.id}/questions`, { title, body: body || null });
+      setTitle("");
+      setBody("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="mb-3 font-display text-xl font-bold">Questions & answers</h2>
+
+      {user ? (
+        <form onSubmit={ask} className="card mb-4 space-y-3 p-4">
+          <input
+            className="input"
+            placeholder="Your question title…"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+          <textarea
+            className="input min-h-[70px]"
+            placeholder="Details (optional) — what have you tried, any context?"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <button className="btn-primary text-sm" disabled={busy || !title.trim()}>
+            {busy ? "Posting…" : "Ask the community"}
+          </button>
+        </form>
+      ) : (
+        <div className="card mb-4 p-4 text-center text-sm text-slate-600">
+          <Link to="/register" className="text-brand-600 underline">Join</Link> to ask questions or help other owners.
+        </div>
+      )}
+
+      {questions.length === 0 ? (
+        <p className="text-sm text-slate-500">No questions yet — start the conversation.</p>
+      ) : (
+        <ul className="space-y-3">
+          {questions.map((q) => (
+            <QuestionItem
+              key={q.id}
+              question={q}
+              isOpen={openId === q.id}
+              onToggle={() => setOpenId(openId === q.id ? null : q.id)}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function QuestionItem({
+  question,
+  isOpen,
+  onToggle,
+}: {
+  question: GuideQuestion;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const { user } = useAuth();
+  const [answers, setAnswers] = useState<GuideAnswer[] | null>(null);
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void api
+      .get<GuideAnswer[]>(`/animals/questions/${question.id}/answers`)
+      .then(setAnswers)
+      .catch(() => setAnswers([]));
+  }, [isOpen, question.id]);
+
+  async function answer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!body.trim()) return;
+    setBusy(true);
+    try {
+      const a = await api.post<GuideAnswer>(`/animals/questions/${question.id}/answers`, { body });
+      setAnswers((prev) => [...(prev ?? []), a]);
+      setBody("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function accept(a: GuideAnswer) {
+    await api.post(`/animals/questions/${question.id}/accept/${a.id}`);
+    setAnswers((prev) => prev?.map((x) => ({ ...x, accepted: x.id === a.id })) ?? null);
+  }
+
+  return (
+    <li className="card overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-start justify-between gap-2 p-4 text-left hover:bg-slate-50"
+      >
+        <div className="min-w-0">
+          <p className="font-semibold">{question.title}</p>
+          {question.body && <p className="mt-1 line-clamp-2 text-sm text-slate-600">{question.body}</p>}
+          <p className="mt-1 text-xs text-slate-400">
+            by {question.author_name ?? "anonymous"} · {formatTimeAgo(question.created_at)} ·{" "}
+            {question.answer_count} answer{question.answer_count === 1 ? "" : "s"}
+            {question.accepted_answer_id && <span className="ml-2 chip-sage">Resolved</span>}
+          </p>
+        </div>
+        <span className="text-lg text-slate-400">{isOpen ? "−" : "+"}</span>
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-slate-100 bg-slate-50 p-4">
+          {answers === null ? (
+            <p className="text-sm text-slate-500">Loading answers…</p>
+          ) : answers.length === 0 ? (
+            <p className="text-sm text-slate-500">No answers yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {answers.map((a) => (
+                <li key={a.id} className={`rounded-lg border p-3 text-sm ${a.accepted ? "border-sage-200 bg-sage-50" : "border-slate-200 bg-white"}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{a.author_name ?? "anonymous"}</p>
+                    <p className="text-xs text-slate-400">{formatTimeAgo(a.created_at)}</p>
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-slate-700">{a.body}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    {a.accepted ? (
+                      <span className="chip-sage">Accepted by asker</span>
+                    ) : (
+                      user?.id === question.user_id && (
+                        <button onClick={() => accept(a)} className="text-xs text-brand-600 hover:underline">
+                          Mark as answer
+                        </button>
+                      )
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {user && (
+            <form onSubmit={answer} className="mt-4 space-y-2">
+              <textarea
+                className="input min-h-[70px]"
+                placeholder="Write your answer…"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+              <button className="btn-primary text-sm" disabled={busy || !body.trim()}>
+                {busy ? "Posting…" : "Post answer"}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
 function parseStages(json: string | null | undefined): Stage[] {
   if (!json) return [];
   try {

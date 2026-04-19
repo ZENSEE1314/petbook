@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -10,7 +10,7 @@ from ..db import get_db
 from ..deps import get_current_user
 from ..models import User
 from ..points import award, generate_referral_code, get_config
-from ..schemas import LoginIn, RegisterIn, TokenOut, UserOut, UserUpdateIn
+from ..schemas import ChangePasswordIn, LoginIn, RegisterIn, TokenOut, UserOut, UserUpdateIn
 from ..security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -66,6 +66,19 @@ def login(data: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)) -> User:
     return user
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    data: ChangePasswordIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is wrong")
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.patch("/me", response_model=UserOut)

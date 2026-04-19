@@ -15,6 +15,7 @@ import { NewListing } from "./pages/NewListing";
 import { OrderDetail, Orders } from "./pages/Orders";
 import { ProductDetail } from "./pages/ProductDetail";
 import { Profile } from "./pages/Profile";
+import { PublicProfile } from "./pages/PublicProfile";
 import { Register } from "./pages/Register";
 import { Shop } from "./pages/Shop";
 import { Subscribe } from "./pages/Subscribe";
@@ -56,6 +57,7 @@ export default function App() {
               <Route path="/profile" element={
                 <ProtectedRoute><Profile /></ProtectedRoute>
               } />
+              <Route path="/u/:id" element={<PublicProfile />} />
 
               <Route path="/admin/*" element={
                 <ProtectedRoute requireAdmin><Admin /></ProtectedRoute>

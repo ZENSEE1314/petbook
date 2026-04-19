@@ -297,6 +297,27 @@ class Listing(Base):
 # ---------- Subscription payments ----------
 
 
+class UserPet(Base):
+    """A pet that a user owns — name, species, photo, bio. Shown on their public profile."""
+
+    __tablename__ = "user_pets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    animal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("animals.id", ondelete="SET NULL"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    photo_url: Mapped[str | None] = mapped_column(String(400))
+    bio: Mapped[str | None] = mapped_column(Text)
+    birth_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class PointsConfig(Base):
     """Singleton row (id=1). Admin-editable values used when awarding points."""
 

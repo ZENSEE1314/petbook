@@ -22,6 +22,48 @@ class LoginIn(BaseModel):
     password: str
 
 
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, max_length=200)
+
+
+class PublicUserOut(BaseModel):
+    id: int
+    display_name: str | None
+    avatar_url: str | None
+    bio: str | None
+    points: int
+    level: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserPetIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    animal_id: int | None = None
+    photo_url: str | None = None
+    bio: str | None = None
+    birth_date: datetime | None = None
+
+
+class UserPetOut(BaseModel):
+    id: int
+    owner_id: int
+    animal_id: int | None
+    animal_slug: str | None = None
+    animal_name: str | None = None
+    name: str
+    photo_url: str | None
+    bio: str | None
+    birth_date: datetime | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"

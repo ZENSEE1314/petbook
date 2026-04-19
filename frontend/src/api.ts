@@ -73,6 +73,29 @@ export type User = {
   created_at: string;
 };
 
+export type PublicUser = {
+  id: number;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  points: number;
+  level: number;
+  created_at: string;
+};
+
+export type UserPet = {
+  id: number;
+  owner_id: number;
+  animal_id: number | null;
+  animal_slug: string | null;
+  animal_name: string | null;
+  name: string;
+  photo_url: string | null;
+  bio: string | null;
+  birth_date: string | null;
+  created_at: string;
+};
+
 export type PointsEvent = {
   id: number;
   kind: string;

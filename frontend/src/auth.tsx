@@ -5,7 +5,7 @@ type AuthState = {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
+  register: (email: string, password: string, displayName?: string, referredByCode?: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 };
@@ -51,11 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (email: string, password: string, displayName?: string) => {
+    async (email: string, password: string, displayName?: string, referredByCode?: string) => {
       const { access_token } = await api.post<{ access_token: string }>("/auth/register", {
         email,
         password,
         display_name: displayName,
+        referred_by_code: referredByCode,
       });
       localStorage.setItem("token", access_token);
       await refresh();

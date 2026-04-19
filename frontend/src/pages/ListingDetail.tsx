@@ -68,7 +68,10 @@ export function ListingDetail() {
         <div className="mt-6 rounded-lg bg-slate-50 p-4">
           <h3 className="text-sm font-semibold">Contact the seller</h3>
           <p className="text-sm text-slate-600">
-            {listing.seller_display_name ?? "Seller"} · listed {formatDate(listing.created_at)}
+            <Link to={`/u/${listing.seller_id}`} className="font-medium text-brand-700 hover:underline">
+              {listing.seller_display_name ?? "Seller"}
+            </Link>{" "}
+            · listed {formatDate(listing.created_at)}
           </p>
           {user ? (
             <p className="mt-2 text-slate-800">{listing.contact ?? "Seller did not add contact details."}</p>

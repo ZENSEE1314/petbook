@@ -16,7 +16,7 @@ from .db import Base, SessionLocal, engine
 from .models import Animal
 from .routes import (
     admin, animals, auth, forum, listings, orders, points_api, posts, products,
-    reviews, site, subscription, uploads,
+    reviews, site, subscription, uploads, users,
 )
 
 # Columns added to guide_entries after the first deploy. Running `ALTER TABLE ... ADD COLUMN
@@ -114,6 +114,7 @@ for router in (
     points_api.router,
     reviews.router,
     forum.router,
+    users.router,
 ):
     app.include_router(router, prefix=API_PREFIX)
 

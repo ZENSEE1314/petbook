@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { api, type Animal, type GuideEntry, type GuideMedia, type Order, type Product, type SiteSettings, type User } from "../api";
+import {
+  api,
+  type Animal,
+  type GuideEntry,
+  type GuideMedia,
+  type Order,
+  type PointsConfig,
+  type Product,
+  type SiteSettings,
+  type User,
+} from "../api";
 import { ImageUpload } from "../components/ImageUpload";
 import { MediaUpload } from "../components/MediaUpload";
 import { formatDate, formatPrice, formatTimeAgo } from "../lib/format";
@@ -21,6 +31,7 @@ export function Admin() {
         <NavLink to="/admin/products" className={tabClass}>Products</NavLink>
         <NavLink to="/admin/orders" className={tabClass}>Orders</NavLink>
         <NavLink to="/admin/settings" className={tabClass}>Site settings</NavLink>
+        <NavLink to="/admin/points" className={tabClass}>Points & levels</NavLink>
       </nav>
       <Routes>
         <Route index element={<Users />} />
@@ -28,6 +39,7 @@ export function Admin() {
         <Route path="products" element={<Products />} />
         <Route path="orders" element={<Orders />} />
         <Route path="settings" element={<SiteSettingsForm />} />
+        <Route path="points" element={<PointsConfigForm />} />
       </Routes>
     </div>
   );
@@ -1096,6 +1108,109 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
     >
       {label}
     </button>
+  );
+}
+
+// ---------- Points & levels ----------
+
+function PointsConfigForm() {
+  const [data, setData] = useState<PointsConfig | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    void api.get<PointsConfig>("/points/config").then(setData);
+  }, []);
+
+  if (!data) return <p className="p-6 text-slate-500">Loading…</p>;
+
+  function bind<K extends keyof PointsConfig>(key: K, value: PointsConfig[K]) {
+    setData((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  async function save() {
+    if (!data) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const saved = await api.patch<PointsConfig>("/points/config", data);
+      setData(saved);
+      setMessage({ kind: "ok", text: "Saved. New awards apply going forward." });
+    } catch (err) {
+      setMessage({ kind: "err", text: err instanceof Error ? err.message : "Save failed" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const fields: Array<[keyof PointsConfig, string, string]> = [
+    ["post_created", "Post created", "When a user posts to the feed"],
+    ["post_liked", "Post liked", "Awarded to the post author when someone likes it"],
+    ["comment_created", "Comment created", "When a user comments on a post"],
+    ["listing_created", "Listing created", "When a paid member posts a pet listing"],
+    ["listing_sold", "Listing sold", "When a seller marks their listing as sold"],
+    ["order_per_dollar", "Order — per $1 spent", "Points per US dollar of a paid order"],
+    ["referral_signup", "Referral signup (referrer)", "Awarded when someone joins with your referral code"],
+    ["referral_joiner_bonus", "Referral signup (new user)", "Welcome bonus for using a referral code"],
+    ["review_created", "Review created", "When a user posts a guide review"],
+    ["answer_created", "Answer created", "When a user answers a forum question"],
+    ["answer_accepted", "Answer accepted", "When the asker marks their answer as the accepted one"],
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold">Points & levels</h2>
+        <p className="text-sm text-slate-600">
+          Tune how many points users earn for each action. Changes apply to new events
+          immediately — historical events keep the amount they were awarded.
+        </p>
+      </div>
+
+      <section className="card p-4 sm:p-6">
+        <h3 className="mb-4 font-display text-lg font-semibold">Points per action</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {fields.map(([key, label, help]) => (
+            <div key={key as string}>
+              <label className="label">{label}</label>
+              <input
+                type="number"
+                min={0}
+                className="input"
+                value={(data as any)[key] as number}
+                onChange={(e) => bind(key, Number(e.target.value) as any)}
+              />
+              <p className="mt-1 text-xs text-slate-500">{help}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="card p-4 sm:p-6">
+        <h3 className="mb-2 font-display text-lg font-semibold">Level thresholds</h3>
+        <p className="mb-3 text-sm text-slate-600">
+          JSON array of cumulative points required to reach each level. Example:{" "}
+          <code className="rounded bg-slate-100 px-1 text-xs">[0,50,200,500,1500,5000,15000]</code>
+          {" "}means Level 1 starts at 0, Level 2 at 50 pts, Level 7 at 15k.
+        </p>
+        <textarea
+          className="input min-h-[80px] font-mono text-sm"
+          value={data.level_thresholds}
+          onChange={(e) => bind("level_thresholds", e.target.value)}
+        />
+      </section>
+
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={busy} className="btn-primary">
+          {busy ? "Saving…" : "Save config"}
+        </button>
+        {message && (
+          <span className={`text-sm ${message.kind === "ok" ? "text-emerald-600" : "text-red-600"}`}>
+            {message.text}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

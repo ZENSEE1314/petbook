@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 
 export function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState((params.get("ref") || "").toUpperCase());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +18,7 @@ export function Register() {
     setBusy(true);
     setError(null);
     try {
-      await register(email, password, displayName || undefined);
+      await register(email, password, displayName || undefined, referralCode || undefined);
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -44,6 +46,16 @@ export function Register() {
             <label className="label">Password</label>
             <input className="input" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
             <p className="mt-1 text-xs text-slate-500">6 characters minimum.</p>
+          </div>
+          <div>
+            <label className="label">Referral code <span className="text-xs font-normal text-slate-500">(optional)</span></label>
+            <input
+              className="input uppercase"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              placeholder="e.g. A1B2C3D4"
+            />
+            <p className="mt-1 text-xs text-slate-500">Earn a welcome bonus — your friend also gets points.</p>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button className="btn-primary w-full" disabled={busy}>

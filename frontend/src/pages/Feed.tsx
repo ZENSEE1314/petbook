@@ -188,18 +188,22 @@ function PostCard({
   return (
     <article className="card overflow-hidden">
       <header className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-brand-100 text-center text-brand-700">
-            <span className="leading-8">{(post.author.display_name ?? "?").charAt(0).toUpperCase()}</span>
-          </div>
+        <Link to={`/u/${post.author.id}`} className="flex items-center gap-2 hover:opacity-80">
+          {post.author.avatar_url ? (
+            <img src={post.author.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+              {(post.author.display_name ?? "?").charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
             <p className="text-sm font-semibold">{post.author.display_name ?? "Anonymous"}</p>
             <p className="text-xs text-slate-500">
               {formatTimeAgo(post.created_at)}
-              {animal && <> · <Link to={`/guide/${animal.slug}`} className="hover:underline">{animal.name}</Link></>}
+              {animal && <> · <span className="hover:underline">{animal.name}</span></>}
             </p>
           </div>
-        </div>
+        </Link>
         {(user?.id === post.author.id || user?.is_admin) && (
           <button onClick={deleteMine} className="text-xs text-slate-400 hover:text-red-600">
             Delete
@@ -236,7 +240,9 @@ function PostCard({
             <ul className="mb-3 space-y-2">
               {comments.map((c) => (
                 <li key={c.id} className="text-sm">
-                  <span className="font-semibold">{c.author.display_name ?? "Anonymous"}</span>{" "}
+                  <Link to={`/u/${c.author.id}`} className="font-semibold hover:underline">
+                    {c.author.display_name ?? "Anonymous"}
+                  </Link>{" "}
                   <span className="text-slate-700">{c.body}</span>
                 </li>
               ))}
