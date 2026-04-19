@@ -14,11 +14,27 @@ import httpx
 
 from .config import settings
 
-_GUIDE_SYSTEM = """You are a veterinary care writer. Given a pet species, output a JSON object
-with these string fields: lifespan_years, adult_size, healthy_markers, diet, training, housing,
-common_issues, age_stages. Keep each field under 800 characters. age_stages should be a JSON
-array (as a string) of {stage, age_range, size, feeding, notes} for juvenile, adult, senior.
-Respond with JSON only, no prose."""
+_GUIDE_SYSTEM = """You are a veterinary care writer. Given a pet species, output a rich JSON
+object with these string fields:
+  - story: 2-4 sentence overview covering history, why people keep them, and what makes them
+    special.
+  - origin: where the species comes from (region / country / breed origin).
+  - temperament: personality, social needs, activity level (2-3 sentences).
+  - colors: common colour variations and coat/feather/scale types.
+  - lifespan_years: typical range e.g. "10-15".
+  - weight_range: adult weight range with units e.g. "2-4 kg".
+  - length_range: adult length/height range with units e.g. "30-40 cm".
+  - adult_size: short summary of fully grown size.
+  - healthy_markers: signs of good health to look for.
+  - diet: species-appropriate diet, portion guidance, feeding schedule.
+  - training: how to train them, recommended approach, age to start.
+  - housing: enclosure, space, environment, temperature/humidity if applicable.
+  - common_issues: common illnesses, injuries, behavioural problems and prevention.
+  - age_stages: JSON ARRAY (as a string) of objects with keys {stage, age_range, size,
+    feeding, milestones, notes}. Cover at minimum: newborn, juvenile, adolescent, adult,
+    senior. Each milestone field should mention what owners can expect at that stage and
+    how care changes.
+Keep each text field under 1200 characters. Respond with JSON only, no prose."""
 
 _ANIMAL_SYSTEM = """You are a pet-ownership expert. Given a count, list that many distinct species
 commonly kept as pets that a user might not already have. Output JSON only:

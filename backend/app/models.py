@@ -73,14 +73,27 @@ class GuideEntry(Base):
         ForeignKey("animals.id", ondelete="CASCADE"), unique=True, nullable=False
     )
 
+    # Overview
+    story: Mapped[str | None] = mapped_column(Text)                     # long-form intro, history, character
+    origin: Mapped[str | None] = mapped_column(String(200))             # native region / breed origin
+    temperament: Mapped[str | None] = mapped_column(Text)               # personality, social needs
+    colors: Mapped[str | None] = mapped_column(Text)                    # common colour variations
+
+    # Size & lifespan
     lifespan_years: Mapped[str | None] = mapped_column(String(60))      # "10-15"
-    adult_size: Mapped[str | None] = mapped_column(String(200))         # weight + length text
+    weight_range: Mapped[str | None] = mapped_column(String(80))        # "2-4 kg"
+    length_range: Mapped[str | None] = mapped_column(String(80))        # "30-40 cm"
+    adult_size: Mapped[str | None] = mapped_column(String(200))         # freeform summary
+
+    # Care
     healthy_markers: Mapped[str | None] = mapped_column(Text)           # signs of good health
     diet: Mapped[str | None] = mapped_column(Text)
     training: Mapped[str | None] = mapped_column(Text)
     housing: Mapped[str | None] = mapped_column(Text)                   # cage, enclosure, space needs
     common_issues: Mapped[str | None] = mapped_column(Text)
-    age_stages: Mapped[str | None] = mapped_column(Text)                # JSON: [{stage, age_range, size, feeding, notes}]
+
+    # Birth-to-adult journey — JSON array: [{stage, age_range, size, feeding, milestones, notes}]
+    age_stages: Mapped[str | None] = mapped_column(Text)
 
     # Shop integration — JSON list of product ids that pair with this guide
     recommended_product_ids: Mapped[str | None] = mapped_column(Text)

@@ -72,7 +72,13 @@ class AnimalOut(BaseModel):
 
 
 class GuideEntryIn(BaseModel):
+    story: str | None = None
+    origin: str | None = None
+    temperament: str | None = None
+    colors: str | None = None
     lifespan_years: str | None = None
+    weight_range: str | None = None
+    length_range: str | None = None
     adult_size: str | None = None
     healthy_markers: str | None = None
     diet: str | None = None

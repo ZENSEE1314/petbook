@@ -82,8 +82,11 @@ def ai_generate_guide(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Animal not found")
     draft = generate_guide_draft(animal.name)
     guide = animal.guide or GuideEntry(animal_id=animal.id)
-    for field in ("lifespan_years", "adult_size", "healthy_markers", "diet",
-                  "training", "housing", "common_issues", "age_stages"):
+    for field in (
+        "story", "origin", "temperament", "colors",
+        "lifespan_years", "weight_range", "length_range", "adult_size",
+        "healthy_markers", "diet", "training", "housing", "common_issues", "age_stages",
+    ):
         if field in draft:
             setattr(guide, field, draft[field])
     if not animal.guide:

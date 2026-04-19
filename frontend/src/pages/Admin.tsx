@@ -274,7 +274,13 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
       setGuide({
         id: 0,
         animal_id: animal.id,
+        story: "",
+        origin: "",
+        temperament: "",
+        colors: "",
         lifespan_years: "",
+        weight_range: "",
+        length_range: "",
         adult_size: "",
         healthy_markers: "",
         diet: "",
@@ -319,15 +325,21 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
     );
   }
 
-  const fields: Array<[keyof GuideEntry, string]> = [
-    ["lifespan_years", "Lifespan"],
-    ["adult_size", "Adult size"],
-    ["diet", "Diet"],
-    ["training", "Training"],
-    ["housing", "Housing"],
-    ["healthy_markers", "Healthy markers"],
-    ["common_issues", "Common issues"],
-    ["age_stages", "Age stages (JSON array)"],
+  const fields: Array<[keyof GuideEntry, string, string?]> = [
+    ["story", "Story (history, character, what makes them special)"],
+    ["origin", "Origin (native region / breed origin)"],
+    ["temperament", "Temperament & personality"],
+    ["colors", "Colour variations"],
+    ["lifespan_years", "Lifespan (years, e.g. 10-15)"],
+    ["weight_range", "Weight range (e.g. 2-4 kg)"],
+    ["length_range", "Length / height range (e.g. 30-40 cm)"],
+    ["adult_size", "Adult size summary"],
+    ["diet", "Diet & feeding schedule"],
+    ["training", "Training approach"],
+    ["housing", "Housing / enclosure / environment"],
+    ["healthy_markers", "Signs of good health"],
+    ["common_issues", "Common issues & prevention"],
+    ["age_stages", "Birth-to-adult lifecycle (JSON array — stage, age_range, size, feeding, milestones, notes)"],
   ];
 
   return (

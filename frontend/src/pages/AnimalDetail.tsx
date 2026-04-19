@@ -71,32 +71,55 @@ export function AnimalDetail() {
 
       {guide && (
         <>
+          {guide.story && (
+            <section className="card p-5">
+              <h2 className="mb-2 text-xl font-bold">The story</h2>
+              <p className="whitespace-pre-wrap text-slate-700">{guide.story}</p>
+            </section>
+          )}
+
+          <section className="grid gap-3 rounded-xl bg-white p-4 text-sm shadow-sm md:grid-cols-3">
+            <Fact label="Origin" value={guide.origin} />
+            <Fact label="Lifespan" value={guide.lifespan_years ? `${guide.lifespan_years} years` : null} />
+            <Fact label="Adult size" value={guide.adult_size} />
+            <Fact label="Weight" value={guide.weight_range} />
+            <Fact label="Length" value={guide.length_range} />
+            <Fact label="Temperament" value={guide.temperament} />
+          </section>
+
           <div className="grid gap-4 md:grid-cols-2">
-            <GuideBlock title="Lifespan" body={guide.lifespan_years} />
-            <GuideBlock title="Adult size" body={guide.adult_size} />
+            <GuideBlock title="Colour variations" body={guide.colors} />
             <GuideBlock title="Diet" body={guide.diet} />
             <GuideBlock title="Housing" body={guide.housing} />
             <GuideBlock title="Training" body={guide.training} />
             <GuideBlock title="Signs of good health" body={guide.healthy_markers} />
-            <GuideBlock title="Common issues" body={guide.common_issues} className="md:col-span-2" />
+            <GuideBlock title="Common issues" body={guide.common_issues} />
           </div>
 
           {stages.length > 0 && (
             <section>
-              <h2 className="mb-3 text-xl font-bold">Age stages</h2>
-              <div className="grid gap-3 md:grid-cols-3">
+              <h2 className="mb-3 text-xl font-bold">From birth to adult</h2>
+              <ol className="space-y-3">
                 {stages.map((s, i) => (
-                  <div key={i} className="card p-4">
-                    <h3 className="font-semibold capitalize">{s.stage}</h3>
-                    <p className="text-xs text-slate-500">{s.age_range}</p>
-                    <dl className="mt-2 space-y-1 text-sm">
-                      {s.size && <div><dt className="inline font-medium">Size: </dt><dd className="inline text-slate-700">{s.size}</dd></div>}
-                      {s.feeding && <div><dt className="inline font-medium">Feeding: </dt><dd className="inline text-slate-700">{s.feeding}</dd></div>}
-                      {s.notes && <div><dt className="inline font-medium">Notes: </dt><dd className="inline text-slate-700">{s.notes}</dd></div>}
-                    </dl>
-                  </div>
+                  <li key={i} className="card flex gap-4 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <h3 className="font-semibold capitalize">{s.stage}</h3>
+                        <span className="text-xs text-slate-500">{s.age_range}</span>
+                      </div>
+                      <dl className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+                        {s.size && <div><dt className="inline font-medium">Size: </dt><dd className="inline text-slate-700">{s.size}</dd></div>}
+                        {s.feeding && <div><dt className="inline font-medium">Feeding: </dt><dd className="inline text-slate-700">{s.feeding}</dd></div>}
+                        {s.milestones && <div className="sm:col-span-2"><dt className="inline font-medium">Milestones: </dt><dd className="inline text-slate-700">{s.milestones}</dd></div>}
+                        {s.notes && <div className="sm:col-span-2"><dt className="inline font-medium">Notes: </dt><dd className="inline text-slate-700">{s.notes}</dd></div>}
+                      </dl>
+                    </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </section>
           )}
         </>
@@ -132,7 +155,24 @@ function GuideBlock({ title, body, className }: { title: string; body: string | 
   );
 }
 
-type Stage = { stage: string; age_range: string; size?: string; feeding?: string; notes?: string };
+function Fact({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-slate-800">{value}</dd>
+    </div>
+  );
+}
+
+type Stage = {
+  stage: string;
+  age_range: string;
+  size?: string;
+  feeding?: string;
+  milestones?: string;
+  notes?: string;
+};
 function parseStages(json: string | null | undefined): Stage[] {
   if (!json) return [];
   try {

@@ -9,10 +9,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import text
+
 from .config import settings
 from .db import Base, SessionLocal, engine
 from .models import Animal
 from .routes import admin, animals, auth, listings, orders, posts, products, subscription, uploads
+
+# Columns added to guide_entries after the first deploy. Running `ALTER TABLE ... ADD COLUMN
+# IF NOT EXISTS` on startup lets existing Postgres rows pick up the richer guide schema
+# without needing Alembic for this MVP.
+_GUIDE_ADDITIONS: list[tuple[str, str]] = [
+    ("story", "TEXT"),
+    ("origin", "VARCHAR(200)"),
+    ("temperament", "TEXT"),
+    ("colors", "TEXT"),
+    ("weight_range", "VARCHAR(80)"),
+    ("length_range", "VARCHAR(80)"),
+]
+
+
+def _inline_migrations() -> None:
+    if not engine.url.get_backend_name().startswith("postgres"):
+        return
+    with engine.begin() as conn:
+        for col, ddl in _GUIDE_ADDITIONS:
+            conn.execute(text(f"ALTER TABLE guide_entries ADD COLUMN IF NOT EXISTS {col} {ddl}"))
 
 app = FastAPI(title="Petbook API", version="0.1.0")
 
@@ -29,6 +51,9 @@ app.add_middleware(
 def on_startup() -> None:
     # Auto-create tables. In prod, graduate to Alembic migrations.
     Base.metadata.create_all(engine)
+
+    # Fill in columns added after the original schema.
+    _inline_migrations()
 
     # One-time seed when the animals table is empty. Keeps "fresh deploy" usable.
     if settings.auto_seed:
