@@ -47,4 +47,8 @@ cd backend
 python -m app.seed
 ```
 
-Seeds 15 common species (dog, cat, hamster, parrot, sugar glider, etc.) with stub guide entries ready for admin editing.
+Seeds 21 common species (dog, cat, hamster, parrot, sugar glider, etc.) with stub guide entries ready for admin editing. In production this runs automatically on the first boot — see `AUTO_SEED`.
+
+## Deploying
+
+See [DEPLOY.md](./DEPLOY.md) for step-by-step Railway setup (Postgres, volume for uploads, env vars).

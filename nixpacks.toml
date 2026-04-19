@@ -1,0 +1,23 @@
+# Railway uses Nixpacks to build the app.
+# We build the Vite frontend and copy the output into the backend's static dir,
+# then run the FastAPI app which serves both the API and the SPA.
+
+[phases.setup]
+nixPkgs = ["python311", "nodejs_20", "gcc"]
+
+[phases.install]
+cmds = [
+  "cd frontend && npm ci",
+  "python -m pip install --upgrade pip && pip install -r backend/requirements.txt",
+]
+
+[phases.build]
+cmds = [
+  "cd frontend && npm run build",
+  "rm -rf backend/app/static/web",
+  "mkdir -p backend/app/static/web",
+  "cp -r frontend/dist/. backend/app/static/web/",
+]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend"

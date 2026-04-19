@@ -13,6 +13,9 @@ node_modules/
 dist/
 .vite/
 
+# Built frontend (produced by the Railway build step)
+backend/app/static/web/
+
 # Uploads (runtime, not versioned)
 backend/app/static/uploads/*
 !backend/app/static/uploads/.gitkeep
