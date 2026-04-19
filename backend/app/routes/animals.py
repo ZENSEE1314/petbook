@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -96,7 +96,7 @@ def update_animal(
     return _to_out(animal)
 
 
-@router.delete("/{animal_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{animal_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_animal(
     animal_id: int,
     db: Session = Depends(get_db),

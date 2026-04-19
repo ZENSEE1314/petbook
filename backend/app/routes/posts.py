@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -100,7 +100,7 @@ def create_post(
     return _post_to_out(post, user, 0, 0, False)
 
 
-@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_post(
     post_id: int,
     db: Session = Depends(get_db),
@@ -115,7 +115,7 @@ def delete_post(
     db.commit()
 
 
-@router.post("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def like_post(
     post_id: int,
     db: Session = Depends(get_db),
@@ -131,7 +131,7 @@ def like_post(
     db.commit()
 
 
-@router.delete("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def unlike_post(
     post_id: int,
     db: Session = Depends(get_db),
@@ -183,7 +183,7 @@ def add_comment(
     )
 
 
-@router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_comment(
     comment_id: int,
     db: Session = Depends(get_db),

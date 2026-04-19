@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -105,7 +105,7 @@ def mark_sold(
     return _to_out(listing, db.get(User, listing.seller_id))
 
 
-@router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def remove_listing(
     listing_id: int,
     db: Session = Depends(get_db),
