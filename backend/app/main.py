@@ -14,7 +14,10 @@ from sqlalchemy import text
 from .config import settings
 from .db import Base, SessionLocal, engine
 from .models import Animal
-from .routes import admin, animals, auth, listings, orders, posts, products, site, subscription, uploads
+from .routes import (
+    admin, animals, auth, forum, listings, orders, points_api, posts, products,
+    reviews, site, subscription, uploads,
+)
 
 # Columns added to guide_entries after the first deploy. Running `ALTER TABLE ... ADD COLUMN
 # IF NOT EXISTS` on startup lets existing Postgres rows pick up the richer guide schema
@@ -38,6 +41,10 @@ _SCHEMA_ADDITIONS: list[tuple[str, str, str]] = [
     ("guide_entries", "breeding_guide", "TEXT"),
     ("guide_entries", "breeding_frequency", "VARCHAR(120)"),
     ("guide_entries", "litter_size", "VARCHAR(120)"),
+    # Points + referrals
+    ("users", "points", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "referral_code", "VARCHAR(16)"),
+    ("users", "referred_by_id", "INTEGER"),
 ]
 
 
@@ -104,6 +111,9 @@ for router in (
     admin.router,
     uploads.router,
     site.router,
+    points_api.router,
+    reviews.router,
+    forum.router,
 ):
     app.include_router(router, prefix=API_PREFIX)
 

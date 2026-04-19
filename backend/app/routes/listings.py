@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import get_current_user, require_paid
 from ..models import Listing, User
+from ..points import award, get_config
 from ..schemas import ListingIn, ListingOut
 
 router = APIRouter(prefix="/listings", tags=["listings"])
@@ -67,6 +68,8 @@ def create_listing(
     db.add(listing)
     db.commit()
     db.refresh(listing)
+    cfg = get_config(db)
+    award(db, user, "listing_created", cfg.listing_created, ref_type="listing", ref_id=listing.id)
     return _to_out(listing, user)
 
 
@@ -99,9 +102,15 @@ def mark_sold(
     listing = db.get(Listing, listing_id)
     if not listing or (listing.seller_id != user.id and not user.is_admin):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Listing not found")
+    was_active = listing.status == "active"
     listing.status = "sold"
     db.commit()
     db.refresh(listing)
+    if was_active:
+        cfg = get_config(db)
+        seller = db.get(User, listing.seller_id)
+        award(db, seller, "listing_sold", cfg.listing_sold, ref_type="listing", ref_id=listing.id,
+              note=f"Sold: {listing.title}")
     return _to_out(listing, db.get(User, listing.seller_id))
 
 

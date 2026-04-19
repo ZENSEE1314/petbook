@@ -15,6 +15,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Order, SubscriptionPayment, User
+from ..points import award, get_config
 from ..schemas import SubscribeOut
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
@@ -116,6 +117,12 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dic
             if order and order.status != "paid":
                 order.status = "paid"
                 db.commit()
+                buyer = db.get(User, order.user_id)
+                cfg = get_config(db)
+                dollars = order.total_cents // 100
+                award(db, buyer, "order_paid", dollars * cfg.order_per_dollar,
+                      ref_type="order", ref_id=order.id,
+                      note=f"${dollars} order")
             return {"received": True}
 
         # Otherwise: subscription checkout — client_reference_id or metadata.user_id.

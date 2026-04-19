@@ -68,7 +68,81 @@ export type User = {
   is_admin: boolean;
   is_paid: boolean;
   paid_until: string | null;
+  points: number;
+  referral_code: string | null;
   created_at: string;
+};
+
+export type PointsEvent = {
+  id: number;
+  kind: string;
+  points: number;
+  ref_type: string | null;
+  ref_id: number | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type PointsMe = {
+  level: number;
+  points: number;
+  current_floor: number;
+  next_floor: number | null;
+  progress: number;
+  referral_code: string | null;
+  events: PointsEvent[];
+};
+
+export type PointsConfig = {
+  post_created: number;
+  post_liked: number;
+  comment_created: number;
+  listing_created: number;
+  listing_sold: number;
+  order_per_dollar: number;
+  referral_signup: number;
+  referral_joiner_bonus: number;
+  review_created: number;
+  answer_created: number;
+  answer_accepted: number;
+  level_thresholds: string;
+};
+
+export type GuideReview = {
+  id: number;
+  animal_id: number;
+  user_id: number;
+  author_name: string | null;
+  stars: number;
+  body: string | null;
+  created_at: string;
+};
+
+export type ReviewsResponse = {
+  summary: { average: number; count: number };
+  reviews: GuideReview[];
+};
+
+export type GuideQuestion = {
+  id: number;
+  animal_id: number;
+  user_id: number;
+  author_name: string | null;
+  title: string;
+  body: string | null;
+  created_at: string;
+  answer_count: number;
+  accepted_answer_id: number | null;
+};
+
+export type GuideAnswer = {
+  id: number;
+  question_id: number;
+  user_id: number;
+  author_name: string | null;
+  body: string;
+  created_at: string;
+  accepted: boolean;
 };
 
 export type Animal = {

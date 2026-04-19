@@ -14,6 +14,7 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=200)
     display_name: str | None = None
+    referred_by_code: str | None = None
 
 
 class LoginIn(BaseModel):
@@ -32,9 +33,12 @@ class UserOut(BaseModel):
     display_name: str | None
     avatar_url: str | None
     bio: str | None
+    is_active: bool
     is_admin: bool
     is_paid: bool
     paid_until: datetime | None
+    points: int = 0
+    referral_code: str | None = None
     created_at: datetime
 
     class Config:

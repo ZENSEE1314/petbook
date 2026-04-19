@@ -37,6 +37,13 @@ class User(Base):
     paid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64), index=True)
 
+    # Points / referrals (updated via PointsEvent ledger; this column is the running balance cache).
+    points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True)
+    referred_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -152,6 +159,7 @@ class Post(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
 
+    author: Mapped[User] = relationship(foreign_keys=[author_id])
     likes: Mapped[list["Like"]] = relationship(cascade="all, delete-orphan", back_populates="post")
     comments: Mapped[list["Comment"]] = relationship(
         cascade="all, delete-orphan", back_populates="post", order_by="Comment.created_at"
@@ -287,6 +295,110 @@ class Listing(Base):
 
 
 # ---------- Subscription payments ----------
+
+
+class PointsConfig(Base):
+    """Singleton row (id=1). Admin-editable values used when awarding points."""
+
+    __tablename__ = "points_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Per-action point awards. Admins can tune these live.
+    post_created: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    post_liked: Mapped[int] = mapped_column(Integer, default=2, nullable=False)  # awarded to post author
+    comment_created: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    listing_created: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    listing_sold: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    order_per_dollar: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # on paid
+    referral_signup: Mapped[int] = mapped_column(Integer, default=50, nullable=False)  # to referrer
+    referral_joiner_bonus: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    review_created: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    answer_created: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    answer_accepted: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+
+    # JSON array of cumulative point thresholds per level. Level 1 starts at index 0.
+    # e.g. [0, 50, 200, 500, 1500, 5000]
+    level_thresholds: Mapped[str] = mapped_column(
+        Text, default="[0,50,200,500,1500,5000,15000]", nullable=False
+    )
+
+
+class PointsEvent(Base):
+    """Append-only ledger of point awards. user.points is the cached running total."""
+
+    __tablename__ = "points_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    points: Mapped[int] = mapped_column(Integer, nullable=False)
+    ref_type: Mapped[str | None] = mapped_column(String(20))  # post / order / listing / referral / review / answer
+    ref_id: Mapped[int | None] = mapped_column(Integer)
+    note: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
+class GuideReview(Base):
+    """Stars + written remark on an animal's care guide."""
+
+    __tablename__ = "guide_reviews"
+    __table_args__ = (UniqueConstraint("animal_id", "user_id", name="uq_review_animal_user"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    animal_id: Mapped[int] = mapped_column(
+        ForeignKey("animals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    stars: Mapped[int] = mapped_column(Integer, nullable=False)  # 1..5
+    body: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class GuideQuestion(Base):
+    """Forum question attached to an animal guide."""
+
+    __tablename__ = "guide_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    animal_id: Mapped[int] = mapped_column(
+        ForeignKey("animals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    body: Mapped[str | None] = mapped_column(Text)
+    accepted_answer_id: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
+class GuideAnswer(Base):
+    """Answer to a GuideQuestion."""
+
+    __tablename__ = "guide_answers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("guide_questions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class SiteSettings(Base):

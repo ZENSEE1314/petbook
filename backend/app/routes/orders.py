@@ -10,6 +10,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user, require_admin
 from ..models import Order, OrderItem, Product, User
+from ..points import award, get_config
 from ..schemas import CheckoutIn, CheckoutOut, OrderItemOut, OrderOut
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -172,8 +173,16 @@ def update_order_status(
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    was_paid = order.status == "paid"
     order.status = new_status
     db.commit()
     db.refresh(order)
     buyer = db.get(User, order.user_id)
+    # Award points the first time an order transitions to paid (admin-flip or webhook).
+    if new_status == "paid" and not was_paid:
+        cfg = get_config(db)
+        dollars = order.total_cents // 100
+        award(db, buyer, "order_paid", dollars * cfg.order_per_dollar,
+              ref_type="order", ref_id=order.id,
+              note=f"${dollars} order")
     return _to_out(order, buyer)

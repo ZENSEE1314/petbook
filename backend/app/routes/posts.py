@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import get_current_user, get_optional_user
 from ..models import Comment, Like, Post, User
+from ..points import award, get_config
 from ..schemas import AuthorMini, CommentIn, CommentOut, PostIn, PostOut
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -97,6 +98,8 @@ def create_post(
     db.add(post)
     db.commit()
     db.refresh(post)
+    cfg = get_config(db)
+    award(db, user, "post_created", cfg.post_created, ref_type="post", ref_id=post.id)
     return _post_to_out(post, user, 0, 0, False)
 
 
@@ -129,6 +132,12 @@ def like_post(
         return
     db.add(Like(post_id=post_id, user_id=user.id))
     db.commit()
+    # Award the post's author — not the liker — so rewarding good content, not like-spam.
+    if post.author_id != user.id:
+        author = db.get(User, post.author_id)
+        cfg = get_config(db)
+        award(db, author, "post_liked", cfg.post_liked, ref_type="post", ref_id=post.id,
+              note=f"Liked by {user.display_name or user.email}")
 
 
 @router.delete("/{post_id}/like")
@@ -175,6 +184,8 @@ def add_comment(
     db.add(comment)
     db.commit()
     db.refresh(comment)
+    cfg = get_config(db)
+    award(db, user, "comment_created", cfg.comment_created, ref_type="comment", ref_id=comment.id)
     return CommentOut(
         id=comment.id,
         author=AuthorMini(id=user.id, display_name=user.display_name, avatar_url=user.avatar_url),
