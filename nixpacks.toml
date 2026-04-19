@@ -3,12 +3,20 @@
 # then run the FastAPI app which serves both the API and the SPA.
 
 [phases.setup]
-nixPkgs = ["python311", "nodejs_20", "gcc"]
+nixPkgs = [
+  "python311",
+  "python311Packages.pip",
+  "python311Packages.virtualenv",
+  "nodejs_20",
+  "gcc",
+]
 
 [phases.install]
 cmds = [
   "cd frontend && npm install --no-audit --no-fund",
-  "python -m pip install --upgrade pip && pip install -r backend/requirements.txt",
+  "python -m venv /opt/venv",
+  "/opt/venv/bin/pip install --upgrade pip",
+  "/opt/venv/bin/pip install -r backend/requirements.txt",
 ]
 
 [phases.build]
@@ -20,4 +28,4 @@ cmds = [
 ]
 
 [start]
-cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend"
+cmd = "/opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend"
