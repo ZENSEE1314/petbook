@@ -110,6 +110,10 @@ export type GuideEntry = {
   housing: string | null;
   common_issues: string | null;
   age_stages: string | null;
+  sexing: string | null;
+  breeding_guide: string | null;
+  breeding_frequency: string | null;
+  litter_size: string | null;
   recommended_product_ids: string | null;
   is_published: boolean;
   updated_at: string;

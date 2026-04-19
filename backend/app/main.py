@@ -33,6 +33,11 @@ _SCHEMA_ADDITIONS: list[tuple[str, str, str]] = [
     # Order shipping breakdown
     ("orders", "shipping_cents", "INTEGER NOT NULL DEFAULT 0"),
     ("orders", "ship_region", "VARCHAR(20) NOT NULL DEFAULT 'local'"),
+    # Breeding guide fields
+    ("guide_entries", "sexing", "TEXT"),
+    ("guide_entries", "breeding_guide", "TEXT"),
+    ("guide_entries", "breeding_frequency", "VARCHAR(120)"),
+    ("guide_entries", "litter_size", "VARCHAR(120)"),
 ]
 
 

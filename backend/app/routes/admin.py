@@ -87,6 +87,7 @@ def ai_generate_guide(
         "story", "origin", "temperament", "colors",
         "lifespan_years", "weight_range", "length_range", "adult_size",
         "healthy_markers", "diet", "training", "housing", "common_issues", "age_stages",
+        "sexing", "breeding_guide", "breeding_frequency", "litter_size",
     ):
         if field in result.data:
             setattr(guide, field, result.data[field])

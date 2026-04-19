@@ -95,6 +95,12 @@ class GuideEntry(Base):
     # Birth-to-adult journey — JSON array: [{stage, age_range, size, feeding, milestones, notes}]
     age_stages: Mapped[str | None] = mapped_column(Text)
 
+    # Breeding
+    sexing: Mapped[str | None] = mapped_column(Text)              # how to tell male vs female
+    breeding_guide: Mapped[str | None] = mapped_column(Text)      # pairing, environment, timing
+    breeding_frequency: Mapped[str | None] = mapped_column(String(120))  # e.g. "2-3 times per year"
+    litter_size: Mapped[str | None] = mapped_column(String(120))         # e.g. "3-6 babies per litter"
+
     # Shop integration — JSON list of product ids that pair with this guide
     recommended_product_ids: Mapped[str | None] = mapped_column(Text)
 

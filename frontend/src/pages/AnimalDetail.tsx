@@ -98,6 +98,20 @@ export function AnimalDetail() {
             <GuideBlock title="Common issues" body={guide.common_issues} />
           </div>
 
+          {(guide.sexing || guide.breeding_guide || guide.breeding_frequency || guide.litter_size) && (
+            <section>
+              <h2 className="mb-3 text-xl font-bold">Breeding</h2>
+              <div className="mb-3 grid gap-3 rounded-xl bg-white p-4 text-sm shadow-sm sm:grid-cols-2">
+                <Fact label="Breeding frequency" value={guide.breeding_frequency} />
+                <Fact label="Litter / clutch size" value={guide.litter_size} />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <GuideBlock title="Male vs female" body={guide.sexing} />
+                <GuideBlock title="How to breed" body={guide.breeding_guide} />
+              </div>
+            </section>
+          )}
+
           {stages.length > 0 && (
             <section>
               <h2 className="mb-3 text-xl font-bold">From birth to adult</h2>

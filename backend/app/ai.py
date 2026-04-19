@@ -35,6 +35,15 @@ object with these string fields:
     feeding, milestones, notes}. Cover at minimum: newborn, juvenile, adolescent, adult,
     senior. Each milestone field should mention what owners can expect at that stage and
     how care changes.
+  - sexing: how owners can tell a male from a female (visual markers, vent/cloaca check,
+    behaviour, age at which the difference becomes visible).
+  - breeding_guide: practical breeding guidance — pairing age, environment prep,
+    conditioning, nesting, gestation/incubation, weaning / separation, and any legal /
+    ethical considerations for that species.
+  - breeding_frequency: typical number of breedings per year (e.g. "1-2 litters per year",
+    "spring only").
+  - litter_size: typical number of offspring per successful breeding (e.g. "4-6 kits",
+    "100-200 eggs").
 Keep each text field under 1200 characters. Respond with JSON only, no prose."""
 
 _ANIMAL_SYSTEM = """You are a pet-ownership expert. Given a count, list that many distinct species
@@ -60,6 +69,10 @@ def _canned_guide(animal_name: str) -> dict[str, str]:
         "training": "Edit me — how to train them and when to start.",
         "housing": "Edit me — enclosure, space, environment, temperature/humidity.",
         "common_issues": "Edit me — common illnesses, injuries, behavioural problems and prevention.",
+        "sexing": "Edit me — how to tell a male from a female (visual cues, behaviour, age when visible).",
+        "breeding_guide": "Edit me — breeding practices: pairing age, environment, gestation/incubation, weaning.",
+        "breeding_frequency": "Edit me — e.g. 1-2 times per year",
+        "litter_size": "Edit me — e.g. 4-6 per litter",
         "age_stages": json.dumps(
             [
                 {"stage": "newborn", "age_range": "0-? weeks", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},

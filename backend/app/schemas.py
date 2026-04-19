@@ -86,6 +86,10 @@ class GuideEntryIn(BaseModel):
     housing: str | None = None
     common_issues: str | None = None
     age_stages: str | None = None
+    sexing: str | None = None
+    breeding_guide: str | None = None
+    breeding_frequency: str | None = None
+    litter_size: str | None = None
     recommended_product_ids: str | None = None
     is_published: bool = False
 

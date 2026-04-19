@@ -325,6 +325,10 @@ function GuideEditor({
           housing: "",
           common_issues: "",
           age_stages: "",
+          sexing: "",
+          breeding_guide: "",
+          breeding_frequency: "",
+          litter_size: "",
           recommended_product_ids: "",
           is_published: false,
           updated_at: new Date().toISOString(),
@@ -400,6 +404,10 @@ function GuideEditor({
     ["healthy_markers", "Signs of good health"],
     ["common_issues", "Common issues & prevention"],
     ["age_stages", "Birth-to-adult lifecycle (JSON — stage, age_range, size, feeding, milestones, notes)"],
+    ["sexing", "How to tell male vs female"],
+    ["breeding_guide", "Breeding guide (pairing, environment, gestation, weaning)"],
+    ["breeding_frequency", "Breeding frequency (e.g. '1-2 times per year')"],
+    ["litter_size", "Litter / clutch size (e.g. '4-6 kits', '100-200 eggs')"],
   ];
 
   return (
@@ -422,9 +430,10 @@ function GuideEditor({
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             {fields.map(([key, label]) => {
-              const isLong = ["story", "diet", "training", "housing", "common_issues", "age_stages"].includes(
-                key as string,
-              );
+              const isLong = [
+                "story", "diet", "training", "housing", "common_issues",
+                "age_stages", "sexing", "breeding_guide",
+              ].includes(key as string);
               const className = isLong ? "sm:col-span-2" : "";
               return (
                 <div key={key as string} className={className}>
