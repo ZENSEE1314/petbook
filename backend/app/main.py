@@ -14,7 +14,7 @@ from sqlalchemy import text
 from .config import settings
 from .db import Base, SessionLocal, engine
 from .models import Animal
-from .routes import admin, animals, auth, listings, orders, posts, products, subscription, uploads
+from .routes import admin, animals, auth, listings, orders, posts, products, site, subscription, uploads
 
 # Columns added to guide_entries after the first deploy. Running `ALTER TABLE ... ADD COLUMN
 # IF NOT EXISTS` on startup lets existing Postgres rows pick up the richer guide schema
@@ -103,6 +103,7 @@ for router in (
     subscription.router,
     admin.router,
     uploads.router,
+    site.router,
 ):
     app.include_router(router, prefix=API_PREFIX)
 

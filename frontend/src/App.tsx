@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth";
+import { SiteProvider } from "./site";
 import { Nav } from "./components/Nav";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Admin } from "./pages/Admin";
@@ -21,6 +22,7 @@ import { Subscribe } from "./pages/Subscribe";
 export default function App() {
   return (
     <BrowserRouter>
+      <SiteProvider>
       <AuthProvider>
         <div className="flex min-h-screen flex-col">
           <Nav />
@@ -71,6 +73,7 @@ export default function App() {
           </footer>
         </div>
       </AuthProvider>
+      </SiteProvider>
     </BrowserRouter>
   );
 }

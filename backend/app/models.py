@@ -289,6 +289,24 @@ class Listing(Base):
 # ---------- Subscription payments ----------
 
 
+class SiteSettings(Base):
+    """Singleton row (id=1) holding admin-editable site-wide branding + SEO."""
+
+    __tablename__ = "site_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    site_name: Mapped[str] = mapped_column(String(80), default="Petbook", nullable=False)
+    tagline: Mapped[str | None] = mapped_column(String(200))
+    logo_url: Mapped[str | None] = mapped_column(String(400))
+    favicon_url: Mapped[str | None] = mapped_column(String(400))
+    meta_title: Mapped[str | None] = mapped_column(String(200))
+    meta_description: Mapped[str | None] = mapped_column(String(400))
+    theme_color: Mapped[str] = mapped_column(String(16), default="#f97316", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class SubscriptionPayment(Base):
     __tablename__ = "subscription_payments"
 

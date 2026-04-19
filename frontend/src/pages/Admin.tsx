@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { api, type Animal, type GuideEntry, type GuideMedia, type Order, type Product, type User } from "../api";
+import { api, type Animal, type GuideEntry, type GuideMedia, type Order, type Product, type SiteSettings, type User } from "../api";
 import { ImageUpload } from "../components/ImageUpload";
 import { MediaUpload } from "../components/MediaUpload";
 import { formatDate, formatPrice, formatTimeAgo } from "../lib/format";
+import { useSite } from "../site";
 
 export function Admin() {
   const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -19,12 +20,14 @@ export function Admin() {
         <NavLink to="/admin/animals" className={tabClass}>Animals & Guides</NavLink>
         <NavLink to="/admin/products" className={tabClass}>Products</NavLink>
         <NavLink to="/admin/orders" className={tabClass}>Orders</NavLink>
+        <NavLink to="/admin/settings" className={tabClass}>Site settings</NavLink>
       </nav>
       <Routes>
         <Route index element={<Users />} />
         <Route path="animals" element={<Animals />} />
         <Route path="products" element={<Products />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="settings" element={<SiteSettingsForm />} />
       </Routes>
     </div>
   );
@@ -1093,5 +1096,125 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
     >
       {label}
     </button>
+  );
+}
+
+// ---------- Site settings ----------
+
+function SiteSettingsForm() {
+  const { refresh } = useSite();
+  const [data, setData] = useState<SiteSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    void api.get<SiteSettings>("/site/settings").then(setData);
+  }, []);
+
+  if (!data) return <p className="p-6 text-slate-500">Loading…</p>;
+
+  function bind<K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) {
+    setData((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  async function save() {
+    if (!data) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const saved = await api.patch<SiteSettings>("/site/settings", data);
+      setData(saved);
+      await refresh();
+      setMessage({ kind: "ok", text: "Saved. Changes are live across the site." });
+    } catch (err) {
+      setMessage({ kind: "err", text: err instanceof Error ? err.message : "Save failed" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Site settings</h2>
+      <p className="text-sm text-slate-600">
+        Branding and SEO metadata. Changes take effect immediately on every page.
+      </p>
+
+      <section className="card space-y-4 p-4 sm:p-6">
+        <h3 className="font-display text-lg font-semibold">Brand</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Site name</label>
+            <input className="input" value={data.site_name} onChange={(e) => bind("site_name", e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Theme colour (hex)</label>
+            <input className="input" value={data.theme_color} onChange={(e) => bind("theme_color", e.target.value)} placeholder="#f97316" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Tagline</label>
+            <input
+              className="input"
+              value={data.tagline ?? ""}
+              onChange={(e) => bind("tagline", e.target.value || null)}
+              placeholder="social, guide & shop for pet owners"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <ImageUpload
+              label="Logo (square image, shown in nav + social cards)"
+              value={data.logo_url}
+              onChange={(url) => bind("logo_url", url)}
+            />
+          </div>
+          <div>
+            <ImageUpload
+              label="Favicon (tab icon — .png or .svg, 32×32 ideal)"
+              value={data.favicon_url}
+              onChange={(url) => bind("favicon_url", url)}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="card space-y-4 p-4 sm:p-6">
+        <h3 className="font-display text-lg font-semibold">SEO / meta tags</h3>
+        <div>
+          <label className="label">Meta title (browser tab + Google)</label>
+          <input
+            className="input"
+            value={data.meta_title ?? ""}
+            onChange={(e) => bind("meta_title", e.target.value || null)}
+            placeholder={`${data.site_name} — social, guide & shop for pet owners`}
+          />
+          <p className="mt-1 text-xs text-slate-500">Leave blank to auto-generate from site name.</p>
+        </div>
+        <div>
+          <label className="label">Meta description (shown in search results)</label>
+          <textarea
+            className="input min-h-[80px]"
+            value={data.meta_description ?? ""}
+            onChange={(e) => bind("meta_description", e.target.value || null)}
+            placeholder="A pet community, science-backed care guides, and a trusted shop."
+            maxLength={400}
+          />
+          <p className="mt-1 text-xs text-slate-500">~160 chars is ideal for Google.</p>
+        </div>
+      </section>
+
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={busy} className="btn-primary">
+          {busy ? "Saving…" : "Save settings"}
+        </button>
+        {message && (
+          <span className={`text-sm ${message.kind === "ok" ? "text-emerald-600" : "text-red-600"}`}>
+            {message.text}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

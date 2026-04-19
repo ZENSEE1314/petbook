@@ -291,6 +291,29 @@ class ListingOut(BaseModel):
 # ---------- Subscription ----------
 
 
+class SiteSettingsOut(BaseModel):
+    site_name: str
+    tagline: str | None = None
+    logo_url: str | None = None
+    favicon_url: str | None = None
+    meta_title: str | None = None
+    meta_description: str | None = None
+    theme_color: str = "#f97316"
+
+    class Config:
+        from_attributes = True
+
+
+class SiteSettingsIn(BaseModel):
+    site_name: str | None = None
+    tagline: str | None = None
+    logo_url: str | None = None
+    favicon_url: str | None = None
+    meta_title: str | None = None
+    meta_description: str | None = None
+    theme_color: str | None = None
+
+
 class SubscribeOut(BaseModel):
     checkout_url: str | None = None
     paid_until: datetime | None = None
