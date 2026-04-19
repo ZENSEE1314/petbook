@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.sqlite3
+*.db
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Uploads (runtime, not versioned)
+backend/app/static/uploads/*
+!backend/app/static/uploads/.gitkeep
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
