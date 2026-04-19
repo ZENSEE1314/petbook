@@ -205,10 +205,12 @@ function AnimalForm({
   const [description, setDescription] = useState(initial.short_description ?? "");
   const [imageUrl, setImageUrl] = useState<string | null>(initial.image_url);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
       const body = {
         name,
@@ -223,6 +225,8 @@ function AnimalForm({
         await api.patch(`/animals/${initial.id}`, body);
       }
       onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setBusy(false);
     }
@@ -250,13 +254,14 @@ function AnimalForm({
         <textarea className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <ImageUpload value={imageUrl} onChange={setImageUrl} />
-      <div className="flex gap-2">
+      <div className="flex items-center gap-3">
         <button className="btn-primary" disabled={busy}>
           {busy ? "Saving…" : "Save"}
         </button>
         <button type="button" className="btn-secondary" onClick={onClose}>
           Cancel
         </button>
+        {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
     </form>
   );
