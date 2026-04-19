@@ -491,6 +491,9 @@ function MediaManager({ animal }: { animal: Animal }) {
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editCaption, setEditCaption] = useState("");
 
   async function reload() {
     setItems(await api.get<GuideMedia[]>(`/animals/${animal.slug}/media`));
@@ -499,15 +502,19 @@ function MediaManager({ animal }: { animal: Animal }) {
     void reload();
   }, [animal.slug]);
 
-  async function save() {
+  async function attach() {
     if (!pending) return;
+    if (!title.trim()) {
+      alert("Please enter a title so owners know what this tutorial is about.");
+      return;
+    }
     setBusy(true);
     try {
       await api.post<GuideMedia>(`/animals/${animal.id}/media`, {
         kind: pending.kind,
         url: pending.url,
-        title: title || null,
-        caption: caption || null,
+        title: title.trim(),
+        caption: caption.trim() || null,
         position: items.length,
       });
       setPending(null);
@@ -519,6 +526,34 @@ function MediaManager({ animal }: { animal: Animal }) {
     }
   }
 
+  async function saveEdit(m: GuideMedia) {
+    if (!editTitle.trim()) {
+      alert("Title can't be empty.");
+      return;
+    }
+    await api.patch<GuideMedia>(`/animals/media/${m.id}`, {
+      kind: m.kind,
+      url: m.url,
+      title: editTitle.trim(),
+      caption: editCaption.trim() || null,
+      poster_url: m.poster_url,
+      position: m.position,
+    });
+    setEditingId(null);
+    await reload();
+  }
+
+  async function move(m: GuideMedia, direction: -1 | 1) {
+    const idx = items.findIndex((x) => x.id === m.id);
+    const swap = items[idx + direction];
+    if (!swap) return;
+    await Promise.all([
+      api.patch(`/animals/media/${m.id}`, { kind: m.kind, url: m.url, title: m.title, caption: m.caption, poster_url: m.poster_url, position: swap.position }),
+      api.patch(`/animals/media/${swap.id}`, { kind: swap.kind, url: swap.url, title: swap.title, caption: swap.caption, poster_url: swap.poster_url, position: m.position }),
+    ]);
+    await reload();
+  }
+
   async function remove(id: number) {
     if (!confirm("Delete this media?")) return;
     await api.del(`/animals/media/${id}`);
@@ -527,56 +562,112 @@ function MediaManager({ animal }: { animal: Animal }) {
 
   return (
     <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <h4 className="mb-3 font-display text-lg font-semibold">Training videos & audio</h4>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-display text-lg font-semibold">Training videos & audio</h4>
+        <span className="chip-slate">{items.length} attached</span>
+      </div>
+      <p className="mb-3 text-xs text-slate-600">
+        Upload one file at a time. Each tutorial needs a title (what's being taught) and an
+        optional description.
+      </p>
 
       {items.length > 0 && (
         <ul className="mb-4 grid gap-3 sm:grid-cols-2">
-          {items.map((m) => (
-            <li key={m.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              {m.kind === "video" ? (
-                <video src={m.url} controls preload="metadata" className="w-full rounded-md bg-black" />
-              ) : m.kind === "audio" ? (
-                <audio src={m.url} controls preload="metadata" className="w-full" />
-              ) : (
-                <img src={m.url} alt={m.title ?? ""} className="w-full rounded-md" />
-              )}
-              {m.title && <p className="mt-2 text-sm font-semibold">{m.title}</p>}
-              {m.caption && <p className="text-xs text-slate-600">{m.caption}</p>}
-              <button onClick={() => remove(m.id)} className="mt-2 text-xs text-red-600 hover:underline">
-                Delete
-              </button>
-            </li>
-          ))}
+          {items.map((m, idx) => {
+            const isEditing = editingId === m.id;
+            return (
+              <li key={m.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                {m.kind === "video" ? (
+                  <video src={m.url} controls preload="metadata" className="w-full rounded-md bg-black" />
+                ) : m.kind === "audio" ? (
+                  <audio src={m.url} controls preload="metadata" className="w-full" />
+                ) : (
+                  <img src={m.url} alt={m.title ?? ""} className="w-full rounded-md" />
+                )}
+
+                {isEditing ? (
+                  <div className="mt-2 space-y-2">
+                    <input className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" />
+                    <textarea
+                      className="input min-h-[60px]"
+                      value={editCaption}
+                      onChange={(e) => setEditCaption(e.target.value)}
+                      placeholder="What is this training about?"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={() => saveEdit(m)} className="btn-primary text-xs">Save</button>
+                      <button onClick={() => setEditingId(null)} className="btn-secondary text-xs">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm font-semibold">{m.title ?? <span className="text-red-600">Untitled — add a title</span>}</p>
+                    {m.caption && <p className="text-xs text-slate-600">{m.caption}</p>}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <button
+                        onClick={() => {
+                          setEditingId(m.id);
+                          setEditTitle(m.title ?? "");
+                          setEditCaption(m.caption ?? "");
+                        }}
+                        className="text-brand-600 hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button onClick={() => move(m, -1)} disabled={idx === 0} className="text-slate-500 hover:text-slate-900 disabled:text-slate-300">
+                        ↑ Up
+                      </button>
+                      <button onClick={() => move(m, 1)} disabled={idx === items.length - 1} className="text-slate-500 hover:text-slate-900 disabled:text-slate-300">
+                        ↓ Down
+                      </button>
+                      <button onClick={() => remove(m.id)} className="ml-auto text-red-600 hover:underline">
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
       {pending ? (
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
-          <p className="text-sm text-emerald-700">Uploaded {pending.kind} · ready to attach</p>
-          <input
-            className="input"
-            placeholder="Title (e.g. 'Sit command — 101')"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <textarea
-            className="input min-h-[60px]"
-            placeholder="Short caption — what does this tutorial teach?"
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-          />
+        <div className="space-y-2 rounded-lg border border-brand-200 bg-brand-50 p-3">
+          <p className="text-sm text-brand-700">
+            ✅ {pending.kind} uploaded. Add details so owners know what it teaches.
+          </p>
+          <div>
+            <label className="label">Title <span className="text-red-600">*</span></label>
+            <input
+              className="input"
+              required
+              placeholder="e.g. 'Teaching Sit and Stay', 'Nail clipping basics'"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">What is this training about?</label>
+            <textarea
+              className="input min-h-[70px]"
+              placeholder="e.g. 'First 5 minutes — show reward placement, lure into sit, mark and treat. Works for puppies 3+ months.'"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+            />
+          </div>
           <div className="flex gap-2">
-            <button onClick={save} disabled={busy} className="btn-primary text-sm">
+            <button onClick={attach} disabled={busy || !title.trim()} className="btn-primary text-sm">
               {busy ? "Saving…" : "Attach to guide"}
             </button>
             <button onClick={() => setPending(null)} className="btn-secondary text-sm">
-              Cancel
+              Cancel & discard upload
             </button>
           </div>
         </div>
       ) : (
         <MediaUpload
-          label="Add a training video or audio clip"
+          label={items.length === 0 ? "Add your first training video or audio" : "Add another tutorial"}
           onUploaded={(r) => setPending(r)}
         />
       )}
