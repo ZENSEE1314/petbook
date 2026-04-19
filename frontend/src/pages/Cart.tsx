@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type Order } from "../api";
+import { api } from "../api";
 import { useAuth } from "../auth";
 import { cart, cartTotals, useCart } from "../lib/cart";
 import { formatPrice } from "../lib/format";
@@ -30,14 +30,21 @@ export function Cart() {
         product_id: Number(id),
         quantity: item.quantity,
       }));
-      const order = await api.post<Order>("/orders/checkout", {
-        items,
-        shipping_name: name,
-        shipping_address: address,
-        shipping_phone: phone || null,
-      });
+      const resp = await api.post<{ order_id: number; checkout_url: string | null }>(
+        "/orders/checkout",
+        {
+          items,
+          shipping_name: name,
+          shipping_address: address,
+          shipping_phone: phone || null,
+        },
+      );
       cart.clear();
-      navigate(`/orders/${order.id}`);
+      if (resp.checkout_url) {
+        window.location.href = resp.checkout_url;
+      } else {
+        navigate(`/orders/${resp.order_id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
     } finally {
@@ -109,7 +116,7 @@ export function Cart() {
             {busy ? "Placing order…" : user ? "Place order" : "Log in to place order"}
           </button>
           <p className="text-xs text-slate-500">
-            Payment is collected at delivery for this MVP. Stripe checkout can be wired in later.
+            You'll be taken to Stripe Checkout to complete payment.
           </p>
         </form>
       </aside>

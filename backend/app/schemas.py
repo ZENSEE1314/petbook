@@ -215,6 +215,12 @@ class OrderOut(BaseModel):
         from_attributes = True
 
 
+class CheckoutOut(BaseModel):
+    order_id: int
+    checkout_url: str | None = None  # set when Stripe is configured, null for dev stub
+    order: OrderOut
+
+
 # ---------- Listings ----------
 
 

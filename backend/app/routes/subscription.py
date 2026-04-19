@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import SubscriptionPayment, User
+from ..models import Order, SubscriptionPayment, User
 from ..schemas import SubscribeOut
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
@@ -89,9 +89,22 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dic
 
     if event["type"] in ("checkout.session.completed", "invoice.paid"):
         obj = event["data"]["object"]
-        user_id_raw = obj.get("client_reference_id") or obj.get("metadata", {}).get("user_id")
+        metadata = obj.get("metadata") or {}
+
+        # Shop order payment — metadata.order_id points at the Order row.
+        order_id_raw = metadata.get("order_id")
+        if order_id_raw:
+            order = db.get(Order, int(order_id_raw))
+            if order and order.status != "paid":
+                order.status = "paid"
+                db.commit()
+            return {"received": True}
+
+        # Otherwise: subscription checkout — client_reference_id or metadata.user_id.
+        user_id_raw = obj.get("client_reference_id") or metadata.get("user_id")
         if user_id_raw:
             user = db.get(User, int(user_id_raw))
             if user:
                 _grant_membership(user, db, provider="stripe", provider_ref=obj.get("id"))
+
     return {"received": True}

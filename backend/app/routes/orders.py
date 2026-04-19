@@ -1,14 +1,16 @@
-"""Checkout + order history. No real payment in MVP — status starts as 'pending'."""
+"""Checkout + order history. Creates a Stripe Checkout Session when configured;
+otherwise falls back to a dev stub that marks the order 'pending' with no payment."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user, require_admin
 from ..models import Order, OrderItem, Product, User
-from ..schemas import CheckoutIn, OrderItemOut, OrderOut
+from ..schemas import CheckoutIn, CheckoutOut, OrderItemOut, OrderOut
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -27,12 +29,13 @@ def _to_out(order: Order) -> OrderOut:
     )
 
 
-@router.post("/checkout", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
+@router.post("/checkout", response_model=CheckoutOut, status_code=status.HTTP_201_CREATED)
 def checkout(
     data: CheckoutIn,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> OrderOut:
+) -> CheckoutOut:
     if not data.items:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cart is empty")
 
@@ -44,7 +47,7 @@ def checkout(
         shipping_phone=data.shipping_phone,
     )
     db.add(order)
-    db.flush()  # get order.id
+    db.flush()
 
     total = 0
     for line in data.items:
@@ -52,24 +55,57 @@ def checkout(
         if not product or not product.is_active:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Product {line.product_id} unavailable")
         if product.stock < line.quantity:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, f"Not enough stock for {product.name}"
-            )
+            raise HTTPException(status.HTTP_409_CONFLICT, f"Not enough stock for {product.name}")
         product.stock -= line.quantity
-        item = OrderItem(
-            order_id=order.id,
-            product_id=product.id,
-            product_name=product.name,
-            unit_price_cents=product.price_cents,
-            quantity=line.quantity,
+        db.add(
+            OrderItem(
+                order_id=order.id,
+                product_id=product.id,
+                product_name=product.name,
+                unit_price_cents=product.price_cents,
+                quantity=line.quantity,
+            )
         )
-        db.add(item)
         total += product.price_cents * line.quantity
 
     order.total_cents = total
     db.commit()
     db.refresh(order)
-    return _to_out(order)
+
+    checkout_url = _create_stripe_order_session(order, user, request)
+    return CheckoutOut(order_id=order.id, checkout_url=checkout_url, order=_to_out(order))
+
+
+def _create_stripe_order_session(order: Order, user: User, request: Request) -> str | None:
+    if not settings.stripe_secret_key:
+        return None
+    try:
+        import stripe  # type: ignore
+    except ImportError:
+        return None
+
+    stripe.api_key = settings.stripe_secret_key
+    base_url = str(request.base_url).rstrip("/")
+    line_items = [
+        {
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": item.product_name},
+                "unit_amount": item.unit_price_cents,
+            },
+            "quantity": item.quantity,
+        }
+        for item in order.items
+    ]
+    session = stripe.checkout.Session.create(
+        mode="payment",
+        line_items=line_items,
+        customer_email=user.email,
+        metadata={"order_id": str(order.id)},
+        success_url=f"{base_url}/orders/{order.id}?paid=1",
+        cancel_url=f"{base_url}/cart?cancelled=1",
+    )
+    return session.url
 
 
 @router.get("", response_model=list[OrderOut])
