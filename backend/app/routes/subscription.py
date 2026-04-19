@@ -44,7 +44,7 @@ def subscribe(
     db: Session = Depends(get_db),
 ) -> SubscribeOut:
     # Dev stub — no Stripe configured
-    if not (settings.stripe_secret_key and settings.stripe_price_id):
+    if not settings.stripe_secret_key:
         _grant_membership(user, db, provider="stub", provider_ref=None)
         return SubscribeOut(
             checkout_url=None,
@@ -59,13 +59,31 @@ def subscribe(
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "stripe not installed")
     stripe.api_key = settings.stripe_secret_key
 
+    # If STRIPE_PRICE_ID is provided we use that recurring Price object; otherwise we
+    # build it inline from SUBSCRIPTION_PRICE_CENTS so the user doesn't need to create
+    # anything in the Stripe dashboard.
+    if settings.stripe_price_id:
+        line_items = [{"price": settings.stripe_price_id, "quantity": 1}]
+    else:
+        line_items = [
+            {
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": settings.subscription_price_cents,
+                    "recurring": {"interval": "year"},
+                    "product_data": {"name": "Petbook Membership"},
+                },
+                "quantity": 1,
+            }
+        ]
+
     base_url = str(request.base_url).rstrip("/")
     session = stripe.checkout.Session.create(
         mode="subscription",
-        line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
+        line_items=line_items,
         customer_email=user.email,
         client_reference_id=str(user.id),
-        success_url=f"{base_url}/api/subscription/stripe-return?session_id={{CHECKOUT_SESSION_ID}}",
+        success_url=f"{base_url}/subscribe?paid=1",
         cancel_url=f"{base_url}/subscribe?cancelled=1",
     )
     return SubscribeOut(checkout_url=session.url, paid_until=None, provider="stripe")
