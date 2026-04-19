@@ -266,9 +266,11 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
   const [open, setOpen] = useState(false);
   const [guide, setGuide] = useState<GuideEntry | null>(null);
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   async function openEditor() {
     setOpen(true);
+    setMessage(null);
     try {
       const g = await api.get<GuideEntry>(`/animals/${animal.slug}/guide`);
       setGuide(g);
@@ -299,9 +301,13 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
 
   async function generateDraft() {
     setBusy(true);
+    setMessage(null);
     try {
       const g = await api.post<GuideEntry>(`/admin/animals/${animal.id}/generate-guide`);
       setGuide(g);
+      setMessage({ kind: "ok", text: "Draft loaded — review each field then Save guide." });
+    } catch (err) {
+      setMessage({ kind: "err", text: err instanceof Error ? err.message : "Draft failed" });
     } finally {
       setBusy(false);
     }
@@ -310,10 +316,20 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
   async function save() {
     if (!guide) return;
     setBusy(true);
+    setMessage(null);
     try {
-      const g = await api.put<GuideEntry>(`/animals/${animal.id}/guide`, guide);
+      // The response echoes readonly fields like id/updated_at — strip them so the
+      // PUT body matches GuideEntryIn exactly.
+      const { id, animal_id, updated_at, ...editable } = guide;
+      void id;
+      void animal_id;
+      void updated_at;
+      const g = await api.put<GuideEntry>(`/animals/${animal.id}/guide`, editable);
       setGuide(g);
+      setMessage({ kind: "ok", text: "Saved." });
       onSaved();
+    } catch (err) {
+      setMessage({ kind: "err", text: err instanceof Error ? err.message : "Save failed" });
     } finally {
       setBusy(false);
     }
@@ -379,9 +395,20 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
               />
               Publish (visible to paid members)
             </label>
-            <button onClick={save} disabled={busy} className="btn-primary text-sm">
-              {busy ? "Saving…" : "Save guide"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={save} disabled={busy} className="btn-primary text-sm">
+                {busy ? "Saving…" : "Save guide"}
+              </button>
+              {message && (
+                <span
+                  className={`text-sm ${
+                    message.kind === "ok" ? "text-emerald-600" : "text-red-600"
+                  }`}
+                >
+                  {message.text}
+                </span>
+              )}
+            </div>
           </>
         )}
       </div>
