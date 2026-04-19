@@ -119,9 +119,18 @@ def get_guide(
     user: User | None = Depends(get_optional_user),
 ) -> GuideEntry:
     animal = db.query(Animal).filter(Animal.slug == slug).first()
-    if not animal or not animal.guide or not animal.guide.is_published:
+    if not animal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Animal not found")
+    if not animal.guide:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No guide yet")
+
+    # Admins see drafts too — otherwise they'd lose their work on refresh.
+    if user and user.is_admin:
+        return animal.guide
+
+    if not animal.guide.is_published:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Guide not published")
-    if not user or not (user.is_paid or user.is_admin):
+    if not user or not user.is_paid:
         raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, "Paid membership required")
     return animal.guide
 

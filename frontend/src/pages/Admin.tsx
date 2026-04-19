@@ -108,6 +108,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 function Animals() {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [editing, setEditing] = useState<Animal | null>(null);
+  const [editingGuide, setEditingGuide] = useState<Animal | null>(null);
 
   async function reload() {
     const list = await api.get<Animal[]>("/animals");
@@ -160,28 +161,40 @@ function Animals() {
         />
       )}
 
+      {editingGuide && (
+        <GuideEditor
+          animal={editingGuide}
+          onClose={() => setEditingGuide(null)}
+          onSaved={async () => {
+            await reload();
+          }}
+        />
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {animals.map((a) => (
           <div key={a.id} className="card p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold">{a.name}</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{a.name}</p>
                 <p className="text-xs text-slate-500">{a.category ?? "—"}</p>
               </div>
               {a.has_guide ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
                   Published
                 </span>
               ) : (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Draft</span>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Draft</span>
               )}
             </div>
             <p className="mt-2 line-clamp-2 text-sm text-slate-600">{a.short_description ?? "—"}</p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={() => setEditing(a)} className="btn-secondary text-xs">
                 Edit
               </button>
-              <GuideEditor animal={a} onSaved={reload} />
+              <button onClick={() => setEditingGuide(a)} className="btn-secondary text-xs">
+                Edit guide
+              </button>
             </div>
           </div>
         ))}
@@ -267,42 +280,56 @@ function AnimalForm({
   );
 }
 
-function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
+function GuideEditor({
+  animal,
+  onClose,
+  onSaved,
+}: {
+  animal: Animal;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [guide, setGuide] = useState<GuideEntry | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  async function openEditor() {
-    setOpen(true);
+  useEffect(() => {
+    let cancelled = false;
     setMessage(null);
-    try {
-      const g = await api.get<GuideEntry>(`/animals/${animal.slug}/guide`);
-      setGuide(g);
-    } catch {
-      setGuide({
-        id: 0,
-        animal_id: animal.id,
-        story: "",
-        origin: "",
-        temperament: "",
-        colors: "",
-        lifespan_years: "",
-        weight_range: "",
-        length_range: "",
-        adult_size: "",
-        healthy_markers: "",
-        diet: "",
-        training: "",
-        housing: "",
-        common_issues: "",
-        age_stages: "",
-        recommended_product_ids: "",
-        is_published: false,
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }
+    setGuide(null);
+    void (async () => {
+      try {
+        const g = await api.get<GuideEntry>(`/animals/${animal.slug}/guide`);
+        if (!cancelled) setGuide(g);
+      } catch {
+        if (cancelled) return;
+        setGuide({
+          id: 0,
+          animal_id: animal.id,
+          story: "",
+          origin: "",
+          temperament: "",
+          colors: "",
+          lifespan_years: "",
+          weight_range: "",
+          length_range: "",
+          adult_size: "",
+          healthy_markers: "",
+          diet: "",
+          training: "",
+          housing: "",
+          common_issues: "",
+          age_stages: "",
+          recommended_product_ids: "",
+          is_published: false,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [animal.id, animal.slug]);
 
   async function generateDraft() {
     setBusy(true);
@@ -340,15 +367,7 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
     }
   }
 
-  if (!open) {
-    return (
-      <button onClick={openEditor} className="btn-secondary text-xs">
-        Edit guide
-      </button>
-    );
-  }
-
-  const fields: Array<[keyof GuideEntry, string, string?]> = [
+  const fields: Array<[keyof GuideEntry, string]> = [
     ["story", "Story (history, character, what makes them special)"],
     ["origin", "Origin (native region / breed origin)"],
     ["temperament", "Temperament & personality"],
@@ -362,61 +381,75 @@ function GuideEditor({ animal, onSaved }: { animal: Animal; onSaved: () => void 
     ["housing", "Housing / enclosure / environment"],
     ["healthy_markers", "Signs of good health"],
     ["common_issues", "Common issues & prevention"],
-    ["age_stages", "Birth-to-adult lifecycle (JSON array — stage, age_range, size, feeding, milestones, notes)"],
+    ["age_stages", "Birth-to-adult lifecycle (JSON — stage, age_range, size, feeding, milestones, notes)"],
   ];
 
   return (
-    <div className="col-span-3 mt-2 w-full">
-      <div className="card space-y-3 p-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-semibold">{animal.name} — guide</h4>
-          <div className="flex gap-2">
-            <button onClick={generateDraft} disabled={busy} className="btn-secondary text-xs">
-              {busy ? "Generating…" : "Draft via AI"}
-            </button>
-            <button onClick={() => setOpen(false)} className="btn-secondary text-xs">
-              Close
-            </button>
-          </div>
+    <div className="card space-y-4 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-bold">{animal.name} — guide</h3>
+        <div className="flex gap-2">
+          <button onClick={generateDraft} disabled={busy || !guide} className="btn-secondary text-xs">
+            {busy ? "Generating…" : "Draft via AI"}
+          </button>
+          <button onClick={onClose} className="btn-secondary text-xs">
+            Close
+          </button>
         </div>
-        {guide && (
-          <>
-            {fields.map(([key, label]) => (
-              <div key={key as string}>
-                <label className="label">{label}</label>
-                <textarea
-                  className="input min-h-[60px]"
-                  value={(guide[key] as string | null) ?? ""}
-                  onChange={(e) => setGuide({ ...guide, [key]: e.target.value })}
-                />
-              </div>
-            ))}
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-brand-600"
-                checked={guide.is_published}
-                onChange={(e) => setGuide({ ...guide, is_published: e.target.checked })}
-              />
-              Publish (visible to paid members)
-            </label>
-            <div className="flex items-center gap-3">
-              <button onClick={save} disabled={busy} className="btn-primary text-sm">
-                {busy ? "Saving…" : "Save guide"}
-              </button>
-              {message && (
-                <span
-                  className={`text-sm ${
-                    message.kind === "ok" ? "text-emerald-600" : "text-red-600"
-                  }`}
-                >
-                  {message.text}
-                </span>
-              )}
-            </div>
-          </>
-        )}
       </div>
+
+      {!guide ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {fields.map(([key, label]) => {
+              const isLong = ["story", "diet", "training", "housing", "common_issues", "age_stages"].includes(
+                key as string,
+              );
+              const className = isLong ? "sm:col-span-2" : "";
+              return (
+                <div key={key as string} className={className}>
+                  <label className="label">{label}</label>
+                  <textarea
+                    className="input min-h-[70px]"
+                    value={(guide[key] as string | null) ?? ""}
+                    onChange={(e) => setGuide({ ...guide, [key]: e.target.value })}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-brand-600"
+              checked={guide.is_published}
+              onChange={(e) => setGuide({ ...guide, is_published: e.target.checked })}
+            />
+            Publish (visible to paid members)
+          </label>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button onClick={save} disabled={busy} className="btn-primary">
+              {busy ? "Saving…" : "Save guide"}
+            </button>
+            <button onClick={onClose} type="button" className="btn-secondary">
+              Cancel
+            </button>
+            {message && (
+              <span
+                className={`text-sm ${
+                  message.kind === "ok" ? "text-emerald-600" : "text-red-600"
+                }`}
+              >
+                {message.text}
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
