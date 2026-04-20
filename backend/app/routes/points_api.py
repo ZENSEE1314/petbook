@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import get_current_user, require_admin
 from ..models import PointsConfig, PointsEvent, User
-from ..points import get_config, level_info
+from ..points import generate_referral_code, get_config, level_info
 
 router = APIRouter(prefix="/points", tags=["points"])
 
@@ -52,6 +52,12 @@ def my_points(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # Lazy-backfill: accounts created before the referral_code column was added
+    # show up with a NULL code. Generate one on first visit so the profile page
+    # always has something to share.
+    if not user.referral_code:
+        user.referral_code = generate_referral_code(db)
+        db.commit()
     cfg = get_config(db)
     events = (
         db.query(PointsEvent)
