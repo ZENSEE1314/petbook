@@ -10,7 +10,9 @@ import { Feed } from "./pages/Feed";
 import { Guide } from "./pages/Guide";
 import { ListingDetail } from "./pages/ListingDetail";
 import { Listings } from "./pages/Listings";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
+import { ResetPassword } from "./pages/ResetPassword";
 import { NewListing } from "./pages/NewListing";
 import { OrderDetail, Orders } from "./pages/Orders";
 import { ProductDetail } from "./pages/ProductDetail";
@@ -32,6 +34,8 @@ export default function App() {
               <Route path="/" element={<Feed />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               <Route path="/guide" element={<Guide />} />
               <Route path="/guide/:slug" element={<AnimalDetail />} />

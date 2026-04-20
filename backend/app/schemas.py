@@ -27,6 +27,15 @@ class ChangePasswordIn(BaseModel):
     new_password: str = Field(min_length=6, max_length=200)
 
 
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str = Field(min_length=6, max_length=200)
+
+
 class PublicUserOut(BaseModel):
     id: int
     display_name: str | None

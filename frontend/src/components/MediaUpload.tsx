@@ -26,7 +26,7 @@ export function MediaUpload({
         form.append("file", file);
         const xhr = new XMLHttpRequest();
         xhr.open("POST", "/api/uploads/media");
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
         if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));

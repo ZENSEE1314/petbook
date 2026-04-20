@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     ollama_host: str = "https://ollama.com"
     ollama_model: str = "gemma3:27b-cloud"
 
+    # Password reset email. Without these set, the reset URL is logged to stdout
+    # (visible in Railway logs) so the admin can forward it manually.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    public_site_url: str = ""  # e.g. https://petbook.up.railway.app — used to build reset links
+
     # Deploy-time
     # Comma-separated list, or "*" to allow all (dev only).
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

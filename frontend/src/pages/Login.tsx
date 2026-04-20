@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
+import { PasswordInput } from "../components/PasswordInput";
 
 export function Login() {
   const { login } = useAuth();
@@ -8,6 +9,7 @@ export function Login() {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +18,7 @@ export function Login() {
     setBusy(true);
     setError(null);
     try {
-      await login(email, password);
+      await login(email, password, remember);
       const from = (location.state as { from?: string } | null)?.from ?? "/";
       navigate(from, { replace: true });
     } catch (err) {
@@ -39,7 +41,21 @@ export function Login() {
           </div>
           <div>
             <label className="label">Password</label>
-            <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <label className="flex items-center gap-2 text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand-600"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Remember me
+            </label>
+            <Link to="/forgot-password" className="text-brand-600 hover:underline">
+              Forgot password?
+            </Link>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button className="btn-primary w-full" disabled={busy}>

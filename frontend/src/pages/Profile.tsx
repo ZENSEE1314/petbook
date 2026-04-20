@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, type Animal, type PointsMe, type User, type UserPet } from "../api";
 import { useAuth } from "../auth";
 import { ImageUpload } from "../components/ImageUpload";
+import { PasswordInput } from "../components/PasswordInput";
 import { formatDate, formatTimeAgo } from "../lib/format";
 
 export function Profile() {
@@ -187,11 +188,11 @@ function ChangePasswordForm() {
       <h2 className="font-display text-lg font-semibold">Change password</h2>
       <div>
         <label className="label">Current password</label>
-        <input className="input" type="password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <PasswordInput required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
       </div>
       <div>
         <label className="label">New password</label>
-        <input className="input" type="password" required minLength={6} value={next} onChange={(e) => setNext(e.target.value)} />
+        <PasswordInput required minLength={6} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
       </div>
       <div className="flex items-center gap-3">
         <button className="btn-primary text-sm" disabled={busy}>
