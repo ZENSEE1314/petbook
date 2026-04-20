@@ -198,6 +198,8 @@ export type GuideEntry = {
   temperament: string | null;
   colors: string | null;
   lifespan_years: string | null;
+  lifespan_wild: string | null;
+  lifespan_pet: string | null;
   weight_range: string | null;
   length_range: string | null;
   adult_size: string | null;

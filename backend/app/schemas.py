@@ -132,6 +132,8 @@ class GuideEntryIn(BaseModel):
     temperament: str | None = None
     colors: str | None = None
     lifespan_years: str | None = None
+    lifespan_wild: str | None = None
+    lifespan_pet: str | None = None
     weight_range: str | None = None
     length_range: str | None = None
     adult_size: str | None = None

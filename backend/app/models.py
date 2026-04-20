@@ -87,7 +87,9 @@ class GuideEntry(Base):
     colors: Mapped[str | None] = mapped_column(Text)                    # common colour variations
 
     # Size & lifespan
-    lifespan_years: Mapped[str | None] = mapped_column(String(60))      # "10-15"
+    lifespan_years: Mapped[str | None] = mapped_column(String(60))      # general / fallback
+    lifespan_wild: Mapped[str | None] = mapped_column(String(60))       # lifespan in the wild
+    lifespan_pet: Mapped[str | None] = mapped_column(String(60))        # lifespan as a home pet
     weight_range: Mapped[str | None] = mapped_column(String(80))        # "2-4 kg"
     length_range: Mapped[str | None] = mapped_column(String(80))        # "30-40 cm"
     adult_size: Mapped[str | None] = mapped_column(String(200))         # freeform summary

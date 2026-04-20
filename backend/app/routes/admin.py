@@ -93,6 +93,7 @@ def ai_generate_guide(
         "colors_male", "colors_female",
         "diet_male", "diet_female",
         "foods_to_avoid", "sickness_signs",
+        "lifespan_wild", "lifespan_pet",
     ):
         if field in result.data:
             setattr(guide, field, result.data[field])

@@ -92,7 +92,20 @@ export function AnimalDetail() {
 
           <section className="grid gap-3 rounded-xl bg-white p-4 text-sm shadow-sm md:grid-cols-3">
             <Fact label="Origin" value={guide.origin} />
-            <Fact label="Lifespan" value={guide.lifespan_years ? `${guide.lifespan_years} years` : null} />
+            {guide.lifespan_wild || guide.lifespan_pet ? (
+              <>
+                <Fact
+                  label="🌿 Lifespan in the wild"
+                  value={guide.lifespan_wild ? `${guide.lifespan_wild} years` : null}
+                />
+                <Fact
+                  label="🏠 Lifespan as a pet"
+                  value={guide.lifespan_pet ? `${guide.lifespan_pet} years` : null}
+                />
+              </>
+            ) : (
+              <Fact label="Lifespan" value={guide.lifespan_years ? `${guide.lifespan_years} years` : null} />
+            )}
             <Fact label="Adult size" value={guide.adult_size} />
             <Fact label="Weight" value={guide.weight_range} />
             <Fact label="Length" value={guide.length_range} />

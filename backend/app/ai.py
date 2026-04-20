@@ -22,7 +22,10 @@ object with these string fields:
   - origin: where the species comes from (region / country / breed origin).
   - temperament: personality, social needs, activity level (2-3 sentences).
   - colors: common colour variations and coat/feather/scale types.
-  - lifespan_years: typical range e.g. "10-15".
+  - lifespan_years: general fallback lifespan range e.g. "10-15".
+  - lifespan_wild: typical lifespan range in the wild (usually shorter than captivity
+    due to predators, disease, and resource scarcity).
+  - lifespan_pet: typical lifespan as a well-kept home pet (often longer than wild).
   - weight_range: adult weight range with units e.g. "2-4 kg".
   - length_range: adult length/height range with units e.g. "30-40 cm".
   - adult_size: short summary of fully grown size.
@@ -72,6 +75,8 @@ def _canned_guide(animal_name: str) -> dict[str, str]:
         "temperament": "Edit me — personality, social needs, activity level.",
         "colors": "Edit me — common colour variations and coat / feather / scale types.",
         "lifespan_years": "Edit me — typical lifespan range in years",
+        "lifespan_wild": "Edit me — lifespan range in the wild",
+        "lifespan_pet": "Edit me — lifespan range as a home pet",
         "weight_range": "Edit me — adult weight range with units (e.g. 2-4 kg)",
         "length_range": "Edit me — adult length or height range (e.g. 30-40 cm)",
         "adult_size": f"Edit me — fully grown size summary for a {animal_name}",
