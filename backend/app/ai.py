@@ -136,7 +136,12 @@ class AiResult:
 
 
 def _ollama_chat(system: str, user: str) -> tuple[str | None, str | None]:
-    """POST /api/chat to Ollama Cloud. Returns (content, error)."""
+    """Stream /api/chat from Ollama Cloud and concatenate the chunks.
+
+    Streaming avoids the cloud's per-request idle timeout for long generations
+    (the previous stream=False + 120s httpx timeout kept failing for bigger
+    prompts). Each NDJSON chunk carries message.content incrementally.
+    """
     if not settings.ollama_api_key:
         return None, "OLLAMA_API_KEY not set"
     url = f"{settings.ollama_host.rstrip('/')}/api/chat"
@@ -146,23 +151,42 @@ def _ollama_chat(system: str, user: str) -> tuple[str | None, str | None]:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "stream": False,
+        "stream": True,
     }
     headers = {"Authorization": f"Bearer {settings.ollama_api_key}"}
+
+    # connect=30s, read=60s per chunk (model is streaming so each token resets
+    # the read clock), write=30s, pool=5s, overall total effectively ~unbounded.
+    timeout = httpx.Timeout(connect=30.0, read=60.0, write=30.0, pool=5.0)
+
+    pieces: list[str] = []
     try:
-        resp = httpx.post(url, json=payload, headers=headers, timeout=120.0)
+        with httpx.stream("POST", url, json=payload, headers=headers, timeout=timeout) as resp:
+            if resp.status_code != 200:
+                body = resp.read().decode("utf-8", errors="replace")[:300].replace("\n", " ")
+                return None, f"Ollama HTTP {resp.status_code}: {body}"
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if "error" in chunk:
+                    return None, f"Ollama chunk error: {chunk['error']}"
+                piece = (chunk.get("message") or {}).get("content")
+                if piece:
+                    pieces.append(piece)
+                if chunk.get("done"):
+                    break
     except httpx.HTTPError as exc:
+        # Even with streaming, the prompt + first token may exceed read timeout
+        # on cold-start. Surface a helpful message.
         return None, f"Ollama network error: {exc}"
-    if resp.status_code != 200:
-        snippet = resp.text[:300].replace("\n", " ")
-        return None, f"Ollama HTTP {resp.status_code}: {snippet}"
-    try:
-        data = resp.json()
-    except ValueError:
-        return None, f"Ollama non-JSON response: {resp.text[:300]}"
-    content = (data.get("message") or {}).get("content")
+
+    content = "".join(pieces).strip()
     if not content:
-        return None, f"Ollama empty content: {json.dumps(data)[:300]}"
+        return None, "Ollama returned no content (model may have timed out loading)"
     return content, None
 
 
