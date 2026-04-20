@@ -45,6 +45,17 @@ _SCHEMA_ADDITIONS: list[tuple[str, str, str]] = [
     ("users", "points", "INTEGER NOT NULL DEFAULT 0"),
     ("users", "referral_code", "VARCHAR(16)"),
     ("users", "referred_by_id", "INTEGER"),
+    # Male/female guide variants + safety fields
+    ("guide_entries", "weight_range_male", "VARCHAR(120)"),
+    ("guide_entries", "weight_range_female", "VARCHAR(120)"),
+    ("guide_entries", "length_range_male", "VARCHAR(120)"),
+    ("guide_entries", "length_range_female", "VARCHAR(120)"),
+    ("guide_entries", "colors_male", "TEXT"),
+    ("guide_entries", "colors_female", "TEXT"),
+    ("guide_entries", "diet_male", "TEXT"),
+    ("guide_entries", "diet_female", "TEXT"),
+    ("guide_entries", "foods_to_avoid", "TEXT"),
+    ("guide_entries", "sickness_signs", "TEXT"),
 ]
 
 

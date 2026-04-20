@@ -108,6 +108,20 @@ class GuideEntry(Base):
     breeding_frequency: Mapped[str | None] = mapped_column(String(120))  # e.g. "2-3 times per year"
     litter_size: Mapped[str | None] = mapped_column(String(120))         # e.g. "3-6 babies per litter"
 
+    # Male / female specific detail (fall back to the general fields above when blank)
+    weight_range_male: Mapped[str | None] = mapped_column(String(120))
+    weight_range_female: Mapped[str | None] = mapped_column(String(120))
+    length_range_male: Mapped[str | None] = mapped_column(String(120))
+    length_range_female: Mapped[str | None] = mapped_column(String(120))
+    colors_male: Mapped[str | None] = mapped_column(Text)
+    colors_female: Mapped[str | None] = mapped_column(Text)
+    diet_male: Mapped[str | None] = mapped_column(Text)
+    diet_female: Mapped[str | None] = mapped_column(Text)
+
+    # Safety
+    foods_to_avoid: Mapped[str | None] = mapped_column(Text)   # what NOT to feed
+    sickness_signs: Mapped[str | None] = mapped_column(Text)   # warning signs of illness
+
     # Shop integration — JSON list of product ids that pair with this guide
     recommended_product_ids: Mapped[str | None] = mapped_column(Text)
 

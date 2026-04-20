@@ -99,6 +99,8 @@ export function AnimalDetail() {
             <Fact label="Temperament" value={guide.temperament} />
           </section>
 
+          <SexDiffTable guide={guide} />
+
           <div className="grid gap-4 md:grid-cols-2">
             <GuideBlock title="Colour variations" body={guide.colors} />
             <GuideBlock title="Diet" body={guide.diet} />
@@ -106,6 +108,16 @@ export function AnimalDetail() {
             <GuideBlock title="Training" body={guide.training} />
             <GuideBlock title="Signs of good health" body={guide.healthy_markers} />
             <GuideBlock title="Common issues" body={guide.common_issues} />
+            <GuideBlock
+              title="⚠ Foods to avoid"
+              body={guide.foods_to_avoid}
+              className="md:col-span-2 border-red-200 bg-red-50/50"
+            />
+            <GuideBlock
+              title="🩺 Warning signs of sickness"
+              body={guide.sickness_signs}
+              className="md:col-span-2 border-amber-200 bg-amber-50/50"
+            />
           </div>
 
           {(guide.sexing || guide.breeding_guide || guide.breeding_frequency || guide.litter_size) && (
@@ -212,6 +224,45 @@ function GuideBlock({ title, body, className }: { title: string; body: string | 
     <section className={`card p-4 ${className ?? ""}`}>
       <h3 className="mb-1 font-semibold">{title}</h3>
       <p className="whitespace-pre-wrap text-sm text-slate-700">{body}</p>
+    </section>
+  );
+}
+
+function SexDiffTable({ guide }: { guide: GuideEntry }) {
+  const rows: Array<[string, string | null, string | null]> = [
+    ["Weight", guide.weight_range_male, guide.weight_range_female],
+    ["Length / height", guide.length_range_male, guide.length_range_female],
+    ["Colours", guide.colors_male, guide.colors_female],
+    ["Diet", guide.diet_male, guide.diet_female],
+  ].filter(([, m, f]) => (m && m.trim()) || (f && f.trim())) as Array<[string, string | null, string | null]>;
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="card overflow-hidden">
+      <h2 className="border-b border-slate-100 px-5 py-3 font-display text-xl font-bold">
+        Male vs female
+      </h2>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-5 py-2 font-semibold">Field</th>
+              <th className="px-5 py-2 font-semibold">♂ Male</th>
+              <th className="px-5 py-2 font-semibold">♀ Female</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([label, m, f]) => (
+              <tr key={label} className="border-t border-slate-100 align-top">
+                <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-700">{label}</td>
+                <td className="whitespace-pre-wrap px-5 py-3 text-slate-700">{m || "—"}</td>
+                <td className="whitespace-pre-wrap px-5 py-3 text-slate-700">{f || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

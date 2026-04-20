@@ -44,6 +44,17 @@ object with these string fields:
     "spring only").
   - litter_size: typical number of offspring per successful breeding (e.g. "4-6 kits",
     "100-200 eggs").
+  - weight_range_male / weight_range_female: adult weight range split by sex (blank only
+    when the species has no meaningful sex-based difference).
+  - length_range_male / length_range_female: adult length / height range split by sex.
+  - colors_male / colors_female: colour / feather / coat variations that differ between
+    sexes. If both sexes look identical, write the same text in both.
+  - diet_male / diet_female: any dietary differences between males and females (breeding
+    females often need more calcium / calories; leave identical if no difference).
+  - foods_to_avoid: concrete list of foods / plants / substances that are TOXIC or harmful
+    to this species. Be specific and actionable.
+  - sickness_signs: early warning signs the owner should watch for (lethargy, appetite
+    loss, discharge, weight change, abnormal droppings, etc.).
 Keep each text field under 1200 characters. Respond with JSON only, no prose."""
 
 _ANIMAL_SYSTEM = """You are a pet-ownership expert. Given a count, list that many distinct species
@@ -73,6 +84,16 @@ def _canned_guide(animal_name: str) -> dict[str, str]:
         "breeding_guide": "Edit me — breeding practices: pairing age, environment, gestation/incubation, weaning.",
         "breeding_frequency": "Edit me — e.g. 1-2 times per year",
         "litter_size": "Edit me — e.g. 4-6 per litter",
+        "weight_range_male": "Edit me — adult male weight range",
+        "weight_range_female": "Edit me — adult female weight range",
+        "length_range_male": "Edit me — adult male length / height",
+        "length_range_female": "Edit me — adult female length / height",
+        "colors_male": "Edit me — male colour variations",
+        "colors_female": "Edit me — female colour variations",
+        "diet_male": "Edit me — male dietary specifics (or same as general)",
+        "diet_female": "Edit me — female dietary specifics (breeding females often need extra calcium / calories)",
+        "foods_to_avoid": "Edit me — toxic or harmful foods, plants, and substances.",
+        "sickness_signs": "Edit me — early warning signs of illness (lethargy, appetite loss, discharge, weight change, abnormal droppings).",
         "age_stages": json.dumps(
             [
                 {"stage": "newborn", "age_range": "0-? weeks", "size": "edit me", "feeding": "edit me", "milestones": "edit me", "notes": "edit me"},

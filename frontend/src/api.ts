@@ -211,6 +211,16 @@ export type GuideEntry = {
   breeding_guide: string | null;
   breeding_frequency: string | null;
   litter_size: string | null;
+  weight_range_male: string | null;
+  weight_range_female: string | null;
+  length_range_male: string | null;
+  length_range_female: string | null;
+  colors_male: string | null;
+  colors_female: string | null;
+  diet_male: string | null;
+  diet_female: string | null;
+  foods_to_avoid: string | null;
+  sickness_signs: string | null;
   recommended_product_ids: string | null;
   is_published: boolean;
   updated_at: string;

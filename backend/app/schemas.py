@@ -145,6 +145,16 @@ class GuideEntryIn(BaseModel):
     breeding_guide: str | None = None
     breeding_frequency: str | None = None
     litter_size: str | None = None
+    weight_range_male: str | None = None
+    weight_range_female: str | None = None
+    length_range_male: str | None = None
+    length_range_female: str | None = None
+    colors_male: str | None = None
+    colors_female: str | None = None
+    diet_male: str | None = None
+    diet_female: str | None = None
+    foods_to_avoid: str | None = None
+    sickness_signs: str | None = None
     recommended_product_ids: str | None = None
     is_published: bool = False
 
