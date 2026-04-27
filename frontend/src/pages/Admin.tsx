@@ -135,6 +135,24 @@ function Animals() {
     void reload();
   }, []);
 
+  async function autoGroup() {
+    if (
+      !confirm(
+        "Group every standalone animal under a parent matching its category (Mammals / Birds / Reptiles / Amphibians / Fish)? This is reversible — you can re-parent any animal individually.",
+      )
+    )
+      return;
+    const resp = await api.post<{ moved: number; groups: { slug: string; name: string }[] }>(
+      "/admin/animals/auto-group",
+    );
+    await reload();
+    alert(
+      `Re-organized ${resp.moved} animals under ${resp.groups.length} groups: ${resp.groups
+        .map((g) => g.name)
+        .join(", ")}.`,
+    );
+  }
+
   async function suggestMore() {
     const count = Number(prompt("How many species should AI suggest?", "5"));
     if (!count) return;
@@ -158,9 +176,12 @@ function Animals() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-bold">Animals ({animals.length})</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" onClick={autoGroup}>
+            Auto-organize by category
+          </button>
           <button className="btn-secondary" onClick={suggestMore}>
             Suggest via AI
           </button>

@@ -109,6 +109,81 @@ def ai_generate_guide(
     return JSONResponse(body)
 
 
+@router.post("/animals/auto-group")
+def auto_group_animals(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> dict:
+    """Create one top-level parent per existing category and re-parent every
+    standalone animal under it. Idempotent: re-running won't duplicate parents.
+    Doesn't touch animals that already have a parent or animals that are
+    themselves parents."""
+
+    # Title-case display names for each known category code.
+    category_labels: dict[str, str] = {
+        "mammal": "Mammals",
+        "bird": "Birds",
+        "reptile": "Reptiles",
+        "amphibian": "Amphibians",
+        "fish": "Fish",
+        "invertebrate": "Invertebrates",
+    }
+
+    created_parents: dict[str, Animal] = {}
+    moved = 0
+
+    # Animals that already have children (i.e. are parents) — never touch them.
+    parents_q = db.query(Animal.parent_id).filter(Animal.parent_id.isnot(None)).distinct()
+    parent_ids_in_use = {row[0] for row in parents_q.all()}
+
+    candidates = (
+        db.query(Animal)
+        .filter(Animal.parent_id.is_(None))
+        .filter(~Animal.id.in_(parent_ids_in_use))
+        .filter(Animal.category.isnot(None))
+        .all()
+    )
+
+    for animal in candidates:
+        cat = (animal.category or "").lower()
+        label = category_labels.get(cat, cat.title())
+        slug = f"{cat}s" if not cat.endswith("s") else cat
+
+        # Don't make a parent for a single-item category — feels silly.
+        same_cat = [a for a in candidates if (a.category or "").lower() == cat]
+        if len(same_cat) < 2:
+            continue
+
+        parent = created_parents.get(cat)
+        if parent is None:
+            parent = db.query(Animal).filter(Animal.slug == slug).first()
+            if not parent:
+                parent = Animal(
+                    slug=slug,
+                    name=label,
+                    category=cat,
+                    short_description=f"All {label.lower()} kept as pets.",
+                )
+                db.add(parent)
+                db.flush()
+            created_parents[cat] = parent
+
+        if animal.id == parent.id:
+            continue
+        animal.parent_id = parent.id
+        moved += 1
+
+    db.commit()
+    return {
+        "ok": True,
+        "moved": moved,
+        "groups": [
+            {"slug": p.slug, "name": p.name, "category": p.category}
+            for p in created_parents.values()
+        ],
+    }
+
+
 @router.post("/animals/suggest")
 def ai_suggest_animals(
     data: SuggestIn,
