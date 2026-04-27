@@ -175,6 +175,10 @@ export type Animal = {
   category: string | null;
   short_description: string | null;
   image_url: string | null;
+  parent_id: number | null;
+  parent_slug: string | null;
+  parent_name: string | null;
+  child_count: number;
   has_guide: boolean;
 };
 

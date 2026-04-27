@@ -22,6 +22,7 @@ export function AnimalDetail() {
   const [guide, setGuide] = useState<GuideEntry | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [media, setMedia] = useState<GuideMedia[]>([]);
+  const [children, setChildren] = useState<Animal[]>([]);
   const [paywalled, setPaywalled] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -42,6 +43,10 @@ export function AnimalDetail() {
 
     void api.get<Product[]>(`/products?animal_slug=${slug}`).then(setRelated).catch(() => setRelated([]));
     void api.get<GuideMedia[]>(`/animals/${slug}/media`).then(setMedia).catch(() => setMedia([]));
+    void api
+      .get<Animal[]>(`/animals?parent=${slug}`)
+      .then(setChildren)
+      .catch(() => setChildren([]));
   }, [slug]);
 
   if (loading) return <p className="p-6 text-slate-500">Loading…</p>;
@@ -51,17 +56,70 @@ export function AnimalDetail() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4">
-      <header className="flex items-start justify-between">
-        <div>
-          <Link to="/guide" className="text-sm text-slate-500 hover:underline">
-            ← All species
-          </Link>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <nav className="text-sm text-slate-500">
+            <Link to="/guide" className="hover:underline">All species</Link>
+            {animal.parent_slug && animal.parent_name && (
+              <>
+                {" / "}
+                <Link to={`/guide/${animal.parent_slug}`} className="hover:underline">
+                  {animal.parent_name}
+                </Link>
+              </>
+            )}
+            {" / "}<span className="text-slate-700">{animal.name}</span>
+          </nav>
           <h1 className="mt-1 text-3xl font-bold">{animal.name}</h1>
           {animal.category && <p className="text-slate-500">{animal.category}</p>}
           {animal.short_description && <p className="mt-2 text-slate-700">{animal.short_description}</p>}
         </div>
-        {animal.image_url && <img src={animal.image_url} alt="" className="h-32 w-32 rounded-lg object-cover" />}
+        {animal.image_url && <img src={animal.image_url} alt="" className="h-32 w-32 shrink-0 rounded-lg object-cover" />}
       </header>
+
+      {children.length > 0 && (
+        <section>
+          <h2 className="mb-3 font-display text-xl font-bold">
+            Species under {animal.name} ({children.length})
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {children.map((c) => {
+              const clickable = c.has_guide || c.child_count > 0;
+              const inner = (
+                <>
+                  {c.image_url ? (
+                    <img src={c.image_url} alt="" className="h-32 w-full object-cover" />
+                  ) : (
+                    <div className="flex h-32 w-full items-center justify-center bg-gradient-to-br from-cream-100 to-brand-100 text-4xl">🐾</div>
+                  )}
+                  <div className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-display font-semibold">{c.name}</p>
+                      {c.has_guide ? (
+                        <span className="chip-sage shrink-0">Guide</span>
+                      ) : (
+                        <span className="chip-slate shrink-0">Coming soon</span>
+                      )}
+                    </div>
+                    {c.short_description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-600">{c.short_description}</p>
+                    )}
+                  </div>
+                </>
+              );
+              return clickable ? (
+                <Link key={c.id} to={`/guide/${c.slug}`} className="card-hover overflow-hidden">
+                  {inner}
+                </Link>
+              ) : (
+                <div key={c.id} className="card overflow-hidden opacity-70">
+                  {inner}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {paywalled && (
         <div className="card border-brand-200 bg-brand-50 p-6 text-center">

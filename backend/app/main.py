@@ -58,6 +58,8 @@ _SCHEMA_ADDITIONS: list[tuple[str, str, str]] = [
     ("guide_entries", "sickness_signs", "TEXT"),
     ("guide_entries", "lifespan_wild", "VARCHAR(60)"),
     ("guide_entries", "lifespan_pet", "VARCHAR(60)"),
+    # Animal hierarchy
+    ("animals", "parent_id", "INTEGER"),
 ]
 
 

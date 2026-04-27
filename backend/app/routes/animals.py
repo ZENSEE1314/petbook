@@ -22,7 +22,7 @@ def _slugify(name: str) -> str:
     return slug or "animal"
 
 
-def _to_out(animal: Animal) -> AnimalOut:
+def _to_out(animal: Animal, parent: Animal | None = None, child_count: int = 0) -> AnimalOut:
     return AnimalOut(
         id=animal.id,
         slug=animal.slug,
@@ -30,8 +30,33 @@ def _to_out(animal: Animal) -> AnimalOut:
         category=animal.category,
         short_description=animal.short_description,
         image_url=animal.image_url,
+        parent_id=animal.parent_id,
+        parent_slug=parent.slug if parent else None,
+        parent_name=parent.name if parent else None,
+        child_count=child_count,
         has_guide=animal.guide is not None and animal.guide.is_published,
     )
+
+
+def _annotate(db: Session, animals: list[Animal]) -> list[AnimalOut]:
+    """Bulk-load parent + child counts for an animal list."""
+    parent_ids = {a.parent_id for a in animals if a.parent_id}
+    parents = (
+        {p.id: p for p in db.query(Animal).filter(Animal.id.in_(parent_ids)).all()}
+        if parent_ids
+        else {}
+    )
+    ids = [a.id for a in animals]
+    counts: dict[int, int] = {}
+    if ids:
+        from sqlalchemy import func, select
+        rows = db.execute(
+            select(Animal.parent_id, func.count(Animal.id))
+            .where(Animal.parent_id.in_(ids))
+            .group_by(Animal.parent_id)
+        ).all()
+        counts = {row[0]: row[1] for row in rows}
+    return [_to_out(a, parents.get(a.parent_id), counts.get(a.id, 0)) for a in animals]
 
 
 @router.get("", response_model=list[AnimalOut])
@@ -39,6 +64,8 @@ def list_animals(
     db: Session = Depends(get_db),
     category: str | None = None,
     q: str | None = None,
+    parent: str | None = None,        # slug of parent, or "null" for top-level only
+    top_level: bool = False,           # shorthand for parent=null
 ) -> list[AnimalOut]:
     query = db.query(Animal)
     if category:
@@ -46,7 +73,14 @@ def list_animals(
     if q:
         like = f"%{q.lower()}%"
         query = query.filter(Animal.name.ilike(like))
-    return [_to_out(a) for a in query.order_by(Animal.name).all()]
+    if parent == "null" or top_level:
+        query = query.filter(Animal.parent_id.is_(None))
+    elif parent:
+        parent_row = db.query(Animal).filter(Animal.slug == parent).first()
+        if not parent_row:
+            return []
+        query = query.filter(Animal.parent_id == parent_row.id)
+    return _annotate(db, query.order_by(Animal.name).all())
 
 
 @router.get("/{slug}", response_model=AnimalOut)
@@ -54,7 +88,9 @@ def get_animal(slug: str, db: Session = Depends(get_db)) -> AnimalOut:
     animal = db.query(Animal).filter(Animal.slug == slug).first()
     if not animal:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Animal not found")
-    return _to_out(animal)
+    parent = db.get(Animal, animal.parent_id) if animal.parent_id else None
+    child_count = db.query(Animal).filter(Animal.parent_id == animal.id).count()
+    return _to_out(animal, parent, child_count)
 
 
 @router.post("", response_model=AnimalOut, status_code=status.HTTP_201_CREATED)

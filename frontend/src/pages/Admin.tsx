@@ -164,7 +164,24 @@ function Animals() {
           <button className="btn-secondary" onClick={suggestMore}>
             Suggest via AI
           </button>
-          <button className="btn-primary" onClick={() => setEditing({ id: 0, slug: "", name: "", category: "", short_description: "", image_url: null, has_guide: false })}>
+          <button
+            className="btn-primary"
+            onClick={() =>
+              setEditing({
+                id: 0,
+                slug: "",
+                name: "",
+                category: "",
+                short_description: "",
+                image_url: null,
+                parent_id: null,
+                parent_slug: null,
+                parent_name: null,
+                child_count: 0,
+                has_guide: false,
+              })
+            }
+          >
             New animal
           </button>
         </div>
@@ -197,13 +214,19 @@ function Animals() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{a.name}</p>
-                <p className="text-xs text-slate-500">{a.category ?? "—"}</p>
+                <p className="text-xs text-slate-500">
+                  {a.parent_name && <span>under <span className="text-brand-700">{a.parent_name}</span> · </span>}
+                  {a.category ?? "—"}
+                </p>
               </div>
-              {a.has_guide ? (
-                <span className="chip-sage shrink-0">Published</span>
-              ) : (
-                <span className="chip-slate shrink-0">Draft</span>
-              )}
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                {a.has_guide ? (
+                  <span className="chip-sage">Published</span>
+                ) : (
+                  <span className="chip-slate">Draft</span>
+                )}
+                {a.child_count > 0 && <span className="chip-brand">{a.child_count} species</span>}
+              </div>
             </div>
             <p className="mt-2 line-clamp-2 text-sm text-slate-600">{a.short_description ?? "—"}</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -279,8 +302,14 @@ function AnimalForm({
   const [category, setCategory] = useState(initial.category ?? "");
   const [description, setDescription] = useState(initial.short_description ?? "");
   const [imageUrl, setImageUrl] = useState<string | null>(initial.image_url);
+  const [parentId, setParentId] = useState<number | null>(initial.parent_id ?? null);
+  const [allAnimals, setAllAnimals] = useState<Animal[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api.get<Animal[]>("/animals").then(setAllAnimals);
+  }, []);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -293,6 +322,7 @@ function AnimalForm({
         category: category || null,
         short_description: description || null,
         image_url: imageUrl,
+        parent_id: parentId,
       };
       if (initial.id === 0) {
         await api.post("/animals", body);
@@ -322,6 +352,27 @@ function AnimalForm({
         <div>
           <label className="label">Category</label>
           <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="mammal, bird, reptile…" />
+        </div>
+        <div>
+          <label className="label">Parent group</label>
+          <select
+            className="input"
+            value={parentId ?? ""}
+            onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">— Top-level (no parent) —</option>
+            {allAnimals
+              .filter((a) => a.id !== initial.id) // can't be its own parent
+              .filter((a) => a.parent_id == null) // only allow one level for now
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Set this to nest this animal under a group (e.g. "Ball Python" → parent "Snake").
+          </p>
         </div>
       </div>
       <div>

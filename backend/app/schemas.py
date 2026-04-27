@@ -111,6 +111,7 @@ class AnimalIn(BaseModel):
     category: str | None = None
     short_description: str | None = None
     image_url: str | None = None
+    parent_id: int | None = None
 
 
 class AnimalOut(BaseModel):
@@ -120,6 +121,10 @@ class AnimalOut(BaseModel):
     category: str | None
     short_description: str | None
     image_url: str | None
+    parent_id: int | None = None
+    parent_slug: str | None = None
+    parent_name: str | None = None
+    child_count: int = 0
     has_guide: bool = False
 
     class Config:

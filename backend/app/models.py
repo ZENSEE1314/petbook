@@ -50,7 +50,7 @@ class User(Base):
 
 
 class Animal(Base):
-    """A species — e.g. 'Sugar Glider', 'Cat', 'Ball Python'."""
+    """A species or family — e.g. 'Snake' (parent) → 'Ball Python' (child)."""
 
     __tablename__ = "animals"
 
@@ -60,6 +60,10 @@ class Animal(Base):
     category: Mapped[str | None] = mapped_column(String(40), index=True)  # mammal, bird, reptile, ...
     short_description: Mapped[str | None] = mapped_column(String(400))
     image_url: Mapped[str | None] = mapped_column(String(400))
+    # Self-referential — parent group (e.g. "Snake"). NULL means top-level.
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("animals.id", ondelete="SET NULL"), index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

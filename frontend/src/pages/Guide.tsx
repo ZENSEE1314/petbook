@@ -8,7 +8,9 @@ export function Guide() {
   const [category, setCategory] = useState("");
 
   useEffect(() => {
-    void api.get<Animal[]>("/animals").then(setAnimals);
+    // Show only top-level (groups + standalone species). Children appear when
+    // the user opens a parent like 'Snake'.
+    void api.get<Animal[]>("/animals?top_level=true").then(setAnimals);
   }, []);
 
   const categories = useMemo(
@@ -83,7 +85,9 @@ export function Guide() {
                   <h3 className="font-display text-lg font-semibold leading-tight">
                     {a.name}
                   </h3>
-                  {a.has_guide ? (
+                  {a.child_count > 0 ? (
+                    <span className="chip-brand shrink-0">{a.child_count} species</span>
+                  ) : a.has_guide ? (
                     <span className="chip-sage shrink-0">Guide ready</span>
                   ) : (
                     <span className="chip-slate shrink-0">Coming soon</span>
@@ -96,7 +100,8 @@ export function Guide() {
               </div>
             );
 
-            if (a.has_guide) {
+            const clickable = a.has_guide || a.child_count > 0;
+            if (clickable) {
               return (
                 <Link
                   key={a.id}
