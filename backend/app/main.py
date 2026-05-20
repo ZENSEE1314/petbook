@@ -83,8 +83,20 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
-    # Auto-create tables. In prod, graduate to Alembic migrations.
-    Base.metadata.create_all(engine)
+    import time
+    # Retry DB connection — Railway Postgres can take a few seconds to accept
+    # connections after a cold start or restart.
+    max_attempts = 10
+    for attempt in range(1, max_attempts + 1):
+        try:
+            Base.metadata.create_all(engine)
+            break
+        except Exception as exc:
+            if attempt == max_attempts:
+                raise RuntimeError(f"DB unavailable after {max_attempts} attempts: {exc}") from exc
+            wait = min(2 ** attempt, 30)
+            print(f"[startup] DB not ready (attempt {attempt}/{max_attempts}): {exc} — retrying in {wait}s")
+            time.sleep(wait)
 
     # Fill in columns added after the original schema.
     _inline_migrations()
